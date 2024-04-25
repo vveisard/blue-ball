@@ -1,4 +1,4 @@
-use std::f32::consts::FRAC_PI_4;
+use std::f32::consts::{FRAC_PI_4, PI};
 
 use bevy::{
     app::{App, FixedUpdate, Startup, Update},
@@ -13,8 +13,14 @@ use bevy::{
     },
     gizmos::gizmos::Gizmos,
     input::mouse::MouseMotion,
-    math::{primitives::Capsule3d, Mat4, Quat, Vec3},
-    pbr::{PbrBundle, StandardMaterial},
+    math::{
+        primitives::{Capsule3d, Circle, Cuboid},
+        Quat, Vec3,
+    },
+    pbr::{
+        light_consts, AlphaMode, AmbientLight, CascadeShadowConfigBuilder, DirectionalLight,
+        DirectionalLightBundle, PbrBundle, StandardMaterial,
+    },
     render::{color::Color, mesh::Mesh},
     transform::components::Transform,
     utils::default,
@@ -27,40 +33,17 @@ use bevy::{
 struct CharacterIsComponent;
 
 #[derive(Component)]
-struct TransformFromPlayerCameraToCharacterComponent {
-    matrix: Mat4,
+struct RotationFromPlayerCameraToCharacterComponent {
+    rotation_quat: Quat,
 }
 
 #[derive(Bundle)]
 struct CharacterBundle {
     is: CharacterIsComponent,
-    transform_from_player_camera_to_character: TransformFromPlayerCameraToCharacterComponent,
+    rotation_from_player_camera_to_character: RotationFromPlayerCameraToCharacterComponent,
 }
 
 // endregion
-
-fn update_camera_transformation_system(
-    mut character_query: Query<
-        (
-            &Transform,
-            &mut TransformFromPlayerCameraToCharacterComponent,
-        ),
-        With<CharacterIsComponent>,
-    >,
-    player_camera_query: Query<&Transform, With<PlayerCameraIsComponent>>,
-) {
-    let mut character = character_query.single_mut();
-    let player_camera = player_camera_query.single();
-
-    let rotation: Quat =
-        Quat::from_rotation_arc(Vec3::from(player_camera.up()), Vec3::from(character.0.up()));
-
-    character.1.matrix = Mat4::from_quat(rotation);
-}
-
-fn draw_gizmos_system(mut gizmos: Gizmos) {
-    gizmos.arrow(Vec3::ZERO, Vec3::Z * 5., Color::YELLOW);
-}
 
 // region camera
 
@@ -97,15 +80,11 @@ fn update_player_camera_coordinates_using_input_system(
     let mut player_camera = player_camera_query.single_mut();
     for event in mouse_motion_events.read() {
         player_camera.theta += event.delta.x * 0.001;
-        // player_camera.phi = f32::clamp(
-        //     player_camera.phi + event.delta.y * 0.001,
-        //     FRAC_PI_6,
-        //     PI - FRAC_PI_6,
-        // );
+        //player_camera.phi = player_camera.phi + event.delta.y * 0.001
     }
 }
 
-fn update_player_camera_translation_using_coordinates_system(
+fn update_player_camera_to_character_rotation_using_coordinates_system(
     mut player_camera_query: Query<
         (&mut Transform, &PlayerCameraSphericalCoordinates),
         With<PlayerCameraIsComponent>,
@@ -124,9 +103,102 @@ fn update_player_camera_translation_using_coordinates_system(
     player_camera.0.look_at(Vec3::ZERO, Vec3::Y)
 }
 
+fn update_camera_transformation_system(
+    mut character_query: Query<
+        (
+            &Transform,
+            &mut RotationFromPlayerCameraToCharacterComponent,
+        ),
+        With<CharacterIsComponent>,
+    >,
+    player_camera_query: Query<&Transform, With<PlayerCameraIsComponent>>,
+) {
+    let mut character = character_query.single_mut();
+    let player_camera = player_camera_query.single();
+
+    let rotation: Quat =
+        Quat::from_rotation_arc(Vec3::from(player_camera.up()), Vec3::from(character.0.up()));
+
+    character.1.rotation_quat = rotation
+}
+
+// endregion
+
+// region debug systems
+
+fn draw_gizmos_system(
+    mut gizmos: Gizmos,
+    player_camera_query: Query<&Transform, With<PlayerCameraIsComponent>>,
+    character_query: Query<
+        (&Transform, &RotationFromPlayerCameraToCharacterComponent),
+        With<CharacterIsComponent>,
+    >,
+) {
+    let player_camera = player_camera_query.single();
+    let character = character_query.single();
+    gizmos.arrow(
+        character.0.translation,
+        Quat::mul_vec3(character.1.rotation_quat, *player_camera.forward()),
+        Color::BLUE,
+    );
+    gizmos.arrow(
+        character.0.translation,
+        Quat::mul_vec3(character.1.rotation_quat, *player_camera.right()),
+        Color::RED,
+    );
+}
+
 // endregion
 
 // region startup
+
+fn spawn_props_system(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
+    // circular base
+    commands.spawn(PbrBundle {
+        mesh: meshes.add(Circle::new(4.0)),
+        material: materials.add(Color::WHITE),
+        transform: Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
+        ..default()
+    });
+    // cube
+    commands.spawn(PbrBundle {
+        mesh: meshes.add(Cuboid::new(1.0, 1.0, 1.0)),
+        material: materials.add(Color::WHITE),
+        transform: Transform::from_xyz(5.0, 0.5, 5.0),
+        ..default()
+    });
+
+    // ambient light
+    commands.insert_resource(AmbientLight {
+        color: Color::WHITE,
+        brightness: 7.0,
+    });
+
+    // directional 'sun' light
+    commands.spawn(DirectionalLightBundle {
+        directional_light: DirectionalLight {
+            illuminance: light_consts::lux::OVERCAST_DAY,
+            shadows_enabled: true,
+            ..default()
+        },
+        transform: Transform {
+            translation: Vec3::new(0.0, 2.0, 0.0),
+            rotation: Quat::from_rotation_x(-PI / 4.),
+            ..default()
+        },
+        cascade_shadow_config: CascadeShadowConfigBuilder {
+            first_cascade_far_bound: 4.0,
+            maximum_distance: 10.0,
+            ..default()
+        }
+        .into(),
+        ..default()
+    });
+}
 
 fn spawn_character_system(
     mut commands: Commands,
@@ -136,14 +208,18 @@ fn spawn_character_system(
     commands.spawn((
         CharacterBundle {
             is: CharacterIsComponent,
-            transform_from_player_camera_to_character:
-                TransformFromPlayerCameraToCharacterComponent {
-                    matrix: Transform::IDENTITY.compute_matrix(),
+            rotation_from_player_camera_to_character:
+                RotationFromPlayerCameraToCharacterComponent {
+                    rotation_quat: Quat::IDENTITY,
                 },
         },
         PbrBundle {
-            mesh: meshes.add(Capsule3d::new(1.0, 2.)),
-            material: materials.add(Color::BLUE),
+            mesh: meshes.add(Capsule3d::new(0.5, 1.)),
+            material: materials.add(StandardMaterial {
+                base_color: Color::rgba(0.0, 0.0, 1.0, 0.5),
+                alpha_mode: AlphaMode::Blend,
+                ..default()
+            }),
             ..default()
         },
     ));
@@ -175,11 +251,15 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, spawn_character_system)
         .add_systems(Startup, spawn_player_camera_system)
+        .add_systems(Startup, spawn_props_system)
         .add_systems(FixedUpdate, update_camera_transformation_system)
-        .add_systems(Update, update_player_camera_coordinates_using_input_system)
         .add_systems(
-            Update,
-            update_player_camera_translation_using_coordinates_system,
+            FixedUpdate,
+            update_player_camera_coordinates_using_input_system,
+        )
+        .add_systems(
+            FixedUpdate,
+            update_player_camera_to_character_rotation_using_coordinates_system,
         )
         .add_systems(Update, draw_gizmos_system)
         .run();

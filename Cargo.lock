@@ -1160,7 +1160,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "blue-spheres"
+name = "blue-ball"
 version = "0.1.0"
 dependencies = [
  "bevy",
