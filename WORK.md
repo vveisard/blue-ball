@@ -5,6 +5,7 @@
 I will know this is complete when:
 
 - camera pitch is respected
+- camera roll is respected
 
 # STORY movement using physics engine
 
