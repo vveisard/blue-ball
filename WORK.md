@@ -16,3 +16,7 @@ I will know this is complete when:
 - I can use input to move along a box collider using Rapier
 
 using camera rotation is out of scope
+
+## TODO add a physics mesh
+
+Might be fun to import Green Hill zone from Sonic Adventure 2?
