@@ -1,3 +1,5 @@
+# STORY determine transformation from camera to character
+
 # STORY movement using physics engine
 
 ## ACCEPTANCE
