@@ -7,6 +7,11 @@ I will know this is complete when:
 - camera pitch is respected
 - camera roll is respected
 
+## TODO
+
+- Change player camera orbit controls to use WASD
+- Add player camera roll (Q/E)
+
 # STORY movement using physics engine
 
 ## ACCEPTANCE
