@@ -1,3 +1,5 @@
+use std::f32::consts::FRAC_PI_4;
+
 use bevy::{
     app::{App, FixedUpdate, Startup, Update},
     asset::Assets,
@@ -5,10 +7,12 @@ use bevy::{
     ecs::{
         bundle::Bundle,
         component::Component,
+        event::EventReader,
         query::With,
         system::{Commands, Query, ResMut},
     },
     gizmos::gizmos::Gizmos,
+    input::mouse::MouseMotion,
     math::{primitives::Capsule3d, Mat4, Quat, Vec3},
     pbr::{PbrBundle, StandardMaterial},
     render::{color::Color, mesh::Mesh},
@@ -20,7 +24,7 @@ use bevy::{
 // region character
 
 #[derive(Component)]
-struct IsCharacterComponent;
+struct CharacterIsComponent;
 
 #[derive(Component)]
 struct TransformFromPlayerCameraToCharacterComponent {
@@ -29,21 +33,21 @@ struct TransformFromPlayerCameraToCharacterComponent {
 
 #[derive(Bundle)]
 struct CharacterBundle {
-    is: IsCharacterComponent,
+    is: CharacterIsComponent,
     transform_from_player_camera_to_character: TransformFromPlayerCameraToCharacterComponent,
 }
 
 // endregion
 
-fn update_camera_transformation(
+fn update_camera_transformation_system(
     mut character_query: Query<
         (
             &Transform,
             &mut TransformFromPlayerCameraToCharacterComponent,
         ),
-        With<IsCharacterComponent>,
+        With<CharacterIsComponent>,
     >,
-    player_camera_query: Query<&Transform, With<IsPlayerCameraComponent>>,
+    player_camera_query: Query<&Transform, With<PlayerCameraIsComponent>>,
 ) {
     let mut character = character_query.single_mut();
     let player_camera = player_camera_query.single();
@@ -55,17 +59,69 @@ fn update_camera_transformation(
 }
 
 fn draw_gizmos_system(mut gizmos: Gizmos) {
-    gizmos.arrow(Vec3::ZERO, Vec3::Z, Color::YELLOW);
+    gizmos.arrow(Vec3::ZERO, Vec3::Z * 5., Color::YELLOW);
 }
 
 // region camera
 
 #[derive(Component)]
-struct IsPlayerCameraComponent;
+struct PlayerCameraIsComponent;
+
+#[derive(Component)]
+struct PlayerCameraSphericalCoordinates {
+    radius: f32,
+    /**
+     * Polar angle in radians from the y (up) axis.
+     * "phi".
+     */
+    phi: f32,
+    /**
+     * equator angle in radians around the y (up) axis.
+     */
+    theta: f32,
+}
 
 #[derive(Bundle)]
 struct PlayerCameraBundle {
-    is: IsPlayerCameraComponent,
+    is: PlayerCameraIsComponent,
+    spherical_coordinates: PlayerCameraSphericalCoordinates,
+}
+
+fn update_player_camera_coordinates_using_input_system(
+    mut mouse_motion_events: EventReader<MouseMotion>,
+    mut player_camera_query: Query<
+        &mut PlayerCameraSphericalCoordinates,
+        With<PlayerCameraIsComponent>,
+    >,
+) {
+    let mut player_camera = player_camera_query.single_mut();
+    for event in mouse_motion_events.read() {
+        player_camera.theta += event.delta.x * 0.001;
+        // player_camera.phi = f32::clamp(
+        //     player_camera.phi + event.delta.y * 0.001,
+        //     FRAC_PI_6,
+        //     PI - FRAC_PI_6,
+        // );
+    }
+}
+
+fn update_player_camera_translation_using_coordinates_system(
+    mut player_camera_query: Query<
+        (&mut Transform, &PlayerCameraSphericalCoordinates),
+        With<PlayerCameraIsComponent>,
+    >,
+) {
+    let mut player_camera = player_camera_query.single_mut();
+
+    let sin_phi_radius = f32::sin(player_camera.1.phi) * player_camera.1.radius;
+
+    player_camera.0.translation = Vec3::new(
+        sin_phi_radius * f32::sin(player_camera.1.theta),
+        f32::cos(player_camera.1.phi) * player_camera.1.radius,
+        sin_phi_radius * f32::cos(player_camera.1.theta),
+    );
+
+    player_camera.0.look_at(Vec3::ZERO, Vec3::Y)
 }
 
 // endregion
@@ -79,7 +135,7 @@ fn spawn_character_system(
 ) {
     commands.spawn((
         CharacterBundle {
-            is: IsCharacterComponent,
+            is: CharacterIsComponent,
             transform_from_player_camera_to_character:
                 TransformFromPlayerCameraToCharacterComponent {
                     matrix: Transform::IDENTITY.compute_matrix(),
@@ -97,7 +153,12 @@ fn spawn_player_camera_system(mut commands: Commands) {
     // camera
     commands.spawn((
         PlayerCameraBundle {
-            is: IsPlayerCameraComponent,
+            is: PlayerCameraIsComponent,
+            spherical_coordinates: PlayerCameraSphericalCoordinates {
+                radius: 25.0,
+                phi: FRAC_PI_4,
+                theta: FRAC_PI_4,
+            },
         },
         Camera3dBundle {
             transform: Transform::from_xyz(0.0, 25., -25.)
@@ -114,7 +175,12 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, spawn_character_system)
         .add_systems(Startup, spawn_player_camera_system)
-        .add_systems(FixedUpdate, update_camera_transformation)
+        .add_systems(FixedUpdate, update_camera_transformation_system)
+        .add_systems(Update, update_player_camera_coordinates_using_input_system)
+        .add_systems(
+            Update,
+            update_player_camera_translation_using_coordinates_system,
+        )
         .add_systems(Update, draw_gizmos_system)
         .run();
 }
