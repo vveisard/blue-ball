@@ -9,8 +9,7 @@ I will know this is complete when:
 
 ## TODO
 
-- Change player camera orbit controls to use WASD
-- Add player camera roll (Q/E)
+- refactor spherical coordinates to quaternion
 
 # STORY movement using physics engine
 
