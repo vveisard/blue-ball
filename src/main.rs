@@ -202,7 +202,11 @@ fn spawn_props_system(
     // circular base
     commands.spawn(PbrBundle {
         mesh: meshes.add(Circle::new(4.0)),
-        material: materials.add(Color::WHITE),
+        material: materials.add(StandardMaterial {
+            base_color: Color::WHITE,
+            cull_mode: None,
+            ..default()
+        }),
         transform: Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
         ..default()
     });
