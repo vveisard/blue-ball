@@ -1,5 +1,3 @@
-use std::f32::consts::{FRAC_PI_4, PI};
-
 use bevy::{
     app::{App, FixedUpdate, Startup, Update},
     asset::Assets,
@@ -12,6 +10,7 @@ use bevy::{
         system::{Commands, Query, Res, ResMut},
     },
     gizmos::gizmos::Gizmos,
+    hierarchy::BuildChildren,
     input::{
         mouse::{MouseButton, MouseMotion},
         ButtonInput,
@@ -24,11 +23,12 @@ use bevy::{
         light_consts, AlphaMode, AmbientLight, CascadeShadowConfigBuilder, DirectionalLight,
         DirectionalLightBundle, PbrBundle, StandardMaterial,
     },
-    render::{color::Color, mesh::Mesh},
-    transform::components::Transform,
+    render::{color::Color, mesh::Mesh, view::InheritedVisibility},
+    transform::components::{GlobalTransform, Transform},
     utils::default,
     DefaultPlugins,
 };
+use std::f32::consts::PI;
 
 // region character
 
@@ -36,14 +36,18 @@ use bevy::{
 struct CharacterIsComponent;
 
 #[derive(Component)]
-struct RotationFromPlayerCameraToCharacterComponent {
+struct InputRotationFromPlayerCameraToCharacterComponent {
     rotation_quat: Quat,
 }
 
 #[derive(Bundle)]
 struct CharacterBundle {
     is: CharacterIsComponent,
-    rotation_from_player_camera_to_character: RotationFromPlayerCameraToCharacterComponent,
+    global_transform: GlobalTransform,
+    transform: Transform,
+    inherited_visibility: InheritedVisibility,
+    input_rotation_from_player_camera_to_character:
+        InputRotationFromPlayerCameraToCharacterComponent,
 }
 
 // endregion
@@ -53,19 +57,9 @@ struct CharacterBundle {
 #[derive(Component)]
 struct PlayerCameraIsComponent;
 
+/// Holds the information for the ccamera's rotation about the focus (character).
 #[derive(Component)]
-struct PlayerCameraSphericalCoordinates {
-    radius: f32,
-    /**
-     * Polar angle in radians from the y (up) axis.
-     * "phi".
-     */
-    phi: f32,
-    /**
-     * equator angle in radians around the y (up) axis.
-     */
-    theta: f32,
-}
+struct PlayerCameraRotationCoordinateComponent(pub Quat);
 
 #[derive(Component)]
 struct PlayerCameraRollComponent(pub f32);
@@ -73,21 +67,23 @@ struct PlayerCameraRollComponent(pub f32);
 #[derive(Bundle)]
 struct PlayerCameraBundle {
     is: PlayerCameraIsComponent,
-    spherical_coordinates: PlayerCameraSphericalCoordinates,
+    rotation_coordinate: PlayerCameraRotationCoordinateComponent,
     roll: PlayerCameraRollComponent,
 }
 
 fn update_player_camera_coordinates_using_input_system(
     mut mouse_motion_events: EventReader<MouseMotion>,
     mut player_camera_query: Query<
-        &mut PlayerCameraSphericalCoordinates,
+        &mut PlayerCameraRotationCoordinateComponent,
         With<PlayerCameraIsComponent>,
     >,
 ) {
     let mut player_camera = player_camera_query.single_mut();
     for event in mouse_motion_events.read() {
-        player_camera.theta += event.delta.x * 0.001;
-        player_camera.phi = player_camera.phi - event.delta.y * 0.001
+        let frame_pitch = Quat::from_axis_angle(Vec3::X, event.delta.y * 0.001);
+        let frame_yaw = Quat::from_axis_angle(Vec3::Y, event.delta.x * 0.001);
+        let next_player_camera_rotation: Quat = frame_pitch * frame_yaw * player_camera.0;
+        player_camera.0 = next_player_camera_rotation;
     }
 }
 
@@ -110,7 +106,7 @@ fn update_player_camera_to_character_rotation_using_coordinates_system(
     mut player_camera_query: Query<
         (
             &mut Transform,
-            &PlayerCameraSphericalCoordinates,
+            &PlayerCameraRotationCoordinateComponent,
             &PlayerCameraRollComponent,
         ),
         With<PlayerCameraIsComponent>,
@@ -118,13 +114,7 @@ fn update_player_camera_to_character_rotation_using_coordinates_system(
 ) {
     let mut player_camera = player_camera_query.single_mut();
 
-    let sin_phi_radius = f32::sin(player_camera.1.phi) * player_camera.1.radius;
-
-    player_camera.0.translation = Vec3::new(
-        sin_phi_radius * f32::sin(player_camera.1.theta),
-        f32::cos(player_camera.1.phi) * player_camera.1.radius,
-        sin_phi_radius * f32::cos(player_camera.1.theta),
-    );
+    player_camera.0.translation = Quat::mul_vec3(player_camera.1 .0, Vec3::Z * 25.0);
 
     player_camera.0.look_at(Vec3::ZERO, Vec3::Y);
     player_camera.0.rotate_local_z(player_camera.2 .0);
@@ -150,7 +140,7 @@ fn update_character_rotation_transformation_system(
     mut character_query: Query<
         (
             &Transform,
-            &mut RotationFromPlayerCameraToCharacterComponent,
+            &mut InputRotationFromPlayerCameraToCharacterComponent,
         ),
         With<CharacterIsComponent>,
     >,
@@ -172,7 +162,10 @@ fn draw_gizmos_system(
     mut gizmos: Gizmos,
     player_camera_query: Query<&Transform, With<PlayerCameraIsComponent>>,
     character_query: Query<
-        (&Transform, &RotationFromPlayerCameraToCharacterComponent),
+        (
+            &Transform,
+            &InputRotationFromPlayerCameraToCharacterComponent,
+        ),
         With<CharacterIsComponent>,
     >,
 ) {
@@ -180,12 +173,18 @@ fn draw_gizmos_system(
     let character = character_query.single();
     gizmos.arrow(
         character.0.translation,
-        Quat::mul_vec3(character.1.rotation_quat, *player_camera.forward()),
+        Quat::mul_vec3(
+            character.1.rotation_quat,
+            character.0.translation + *player_camera.forward(),
+        ),
         Color::BLUE,
     );
     gizmos.arrow(
         character.0.translation,
-        Quat::mul_vec3(character.1.rotation_quat, *player_camera.right()),
+        Quat::mul_vec3(
+            character.1.rotation_quat,
+            character.0.translation + *player_camera.right(),
+        ),
         Color::RED,
     );
 }
@@ -251,24 +250,29 @@ fn spawn_character_system(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    commands.spawn((
-        CharacterBundle {
+    commands
+        .spawn((CharacterBundle {
             is: CharacterIsComponent,
-            rotation_from_player_camera_to_character:
-                RotationFromPlayerCameraToCharacterComponent {
+            global_transform: GlobalTransform::default(),
+            transform: Transform::from_xyz(0.0, 0.0, 0.0),
+            inherited_visibility: InheritedVisibility::default(),
+            input_rotation_from_player_camera_to_character:
+                InputRotationFromPlayerCameraToCharacterComponent {
                     rotation_quat: Quat::IDENTITY,
                 },
-        },
-        PbrBundle {
-            mesh: meshes.add(Capsule3d::new(0.5, 1.)),
-            material: materials.add(StandardMaterial {
-                base_color: Color::rgba(0.0, 0.0, 1.0, 0.5),
-                alpha_mode: AlphaMode::Blend,
+        },))
+        .with_children(|parent| {
+            parent.spawn(PbrBundle {
+                transform: Transform::from_xyz(0.0, 1.0, 0.0),
+                mesh: meshes.add(Capsule3d::new(0.5, 1.)),
+                material: materials.add(StandardMaterial {
+                    base_color: Color::rgba(0.0, 0.0, 1.0, 0.5),
+                    alpha_mode: AlphaMode::Blend,
+                    ..default()
+                }),
                 ..default()
-            }),
-            ..default()
-        },
-    ));
+            });
+        });
 }
 
 fn spawn_player_camera_system(mut commands: Commands) {
@@ -276,11 +280,7 @@ fn spawn_player_camera_system(mut commands: Commands) {
     commands.spawn((
         PlayerCameraBundle {
             is: PlayerCameraIsComponent,
-            spherical_coordinates: PlayerCameraSphericalCoordinates {
-                radius: 25.0,
-                phi: FRAC_PI_4,
-                theta: FRAC_PI_4,
-            },
+            rotation_coordinate: PlayerCameraRotationCoordinateComponent(Quat::IDENTITY),
             roll: PlayerCameraRollComponent(0.0),
         },
         Camera3dBundle {
