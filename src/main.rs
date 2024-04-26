@@ -130,7 +130,7 @@ fn update_player_camera_to_character_rotation_using_coordinates_system(
     player_camera.0.rotate_local_z(player_camera.2 .0);
 }
 
-fn update_camera_transformation_system(
+fn update_character_rotation_transformation_system(
     mut character_query: Query<
         (
             &Transform,
@@ -142,11 +142,10 @@ fn update_camera_transformation_system(
 ) {
     let mut character = character_query.single_mut();
     let player_camera = player_camera_query.single();
+    let camera_up = player_camera.up();
+    let character_up = character.0.up();
 
-    let rotation: Quat =
-        Quat::from_rotation_arc(Vec3::from(player_camera.up()), Vec3::from(character.0.up()));
-
-    character.1.rotation_quat = rotation
+    character.1.rotation_quat = Quat::from_rotation_arc(*camera_up, *character_up);
 }
 
 // endregion
@@ -285,7 +284,7 @@ fn main() {
             update_player_camera_coordinates_using_input_system,
         )
         .add_systems(FixedUpdate, update_player_camera_roll_using_input_system)
-        .add_systems(FixedUpdate, update_camera_transformation_system)
+        .add_systems(FixedUpdate, update_character_rotation_transformation_system)
         .add_systems(
             FixedUpdate,
             update_player_camera_to_character_rotation_using_coordinates_system,
