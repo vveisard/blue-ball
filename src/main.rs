@@ -309,4 +309,3 @@ fn main() {
         .add_systems(Update, draw_gizmos_system)
         .run();
 }
-LeftLeft
