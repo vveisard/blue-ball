@@ -1,3 +1,13 @@
+# STORY control camera using quaternion
+
+https://gamedev.stackexchange.com/questions/30644/how-to-keep-my-quaternion-using-fps-camera-from-tilting-and-messing-up/30669#30669
+
+## DESIGN
+
+alternatively, I could use a direction and then rotate that using axies angles, probably.
+
+Should I use global axis angles, or the camera's local axis angles?
+
 # STORY movement using physics engine
 
 ## ACCEPTANCE
