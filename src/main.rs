@@ -5,17 +5,12 @@ use bevy::{
     ecs::{
         bundle::Bundle,
         component::Component,
-        event::EventReader,
-        query::With,
+        query::{With, Without},
         system::{Commands, Query, Res, ResMut},
     },
     gizmos::gizmos::Gizmos,
     hierarchy::BuildChildren,
-    input::{
-        keyboard::KeyCode,
-        mouse::{MouseButton, MouseMotion},
-        ButtonInput,
-    },
+    input::{keyboard::KeyCode, mouse::MouseButton, ButtonInput},
     math::{
         primitives::{Capsule3d, Circle, Cuboid},
         Quat, Vec3,
@@ -59,6 +54,7 @@ struct CharacterBundle {
     inherited_visibility: InheritedVisibility,
     rotation_from_player_camera_to_character: CharacterRotationFromGlobalToCharacterComponent,
     player_input: CharacterPlayerInputComponent,
+    camera_character_offset: CharacterPlayerCameraOffsetComponent,
 }
 
 // endregion
@@ -68,34 +64,18 @@ struct CharacterBundle {
 #[derive(Component)]
 struct PlayerCameraIsComponent;
 
-/// Holds the information for the ccamera's rotation about the focus (character).
-#[derive(Component)]
-struct PlayerCameraRotationCoordinateComponent(pub Quat);
-
 #[derive(Component)]
 struct PlayerCameraRollComponent(pub f32);
+
+#[derive(Component)]
+struct CharacterPlayerCameraOffsetComponent {
+    local_translation: Vec3,
+}
 
 #[derive(Bundle)]
 struct PlayerCameraBundle {
     is: PlayerCameraIsComponent,
-    rotation_coordinate: PlayerCameraRotationCoordinateComponent,
     roll: PlayerCameraRollComponent,
-}
-
-fn update_player_camera_coordinates_using_input_system(
-    mut mouse_motion_events: EventReader<MouseMotion>,
-    mut player_camera_query: Query<
-        &mut PlayerCameraRotationCoordinateComponent,
-        With<PlayerCameraIsComponent>,
-    >,
-) {
-    let mut player_camera = player_camera_query.single_mut();
-    for event in mouse_motion_events.read() {
-        let frame_pitch = Quat::from_axis_angle(Vec3::X, event.delta.y * 0.001);
-        let frame_yaw = Quat::from_axis_angle(Vec3::Y, event.delta.x * 0.001);
-        let next_player_camera_rotation: Quat = frame_pitch * frame_yaw * player_camera.0;
-        player_camera.0 = next_player_camera_rotation;
-    }
 }
 
 fn update_player_camera_roll_using_input_system(
@@ -114,21 +94,21 @@ fn update_player_camera_roll_using_input_system(
 }
 
 fn update_player_camera_to_character_rotation_using_coordinates_system(
+    mut character_query: Query<
+        (&Transform, &CharacterPlayerCameraOffsetComponent),
+        (With<CharacterIsComponent>, Without<PlayerCameraIsComponent>),
+    >,
     mut player_camera_query: Query<
-        (
-            &mut Transform,
-            &PlayerCameraRotationCoordinateComponent,
-            &PlayerCameraRollComponent,
-        ),
-        With<PlayerCameraIsComponent>,
+        (&mut Transform, &PlayerCameraRollComponent),
+        (With<PlayerCameraIsComponent>, Without<CharacterIsComponent>),
     >,
 ) {
+    let character = character_query.single_mut();
     let mut player_camera = player_camera_query.single_mut();
 
-    player_camera.0.translation = Quat::mul_vec3(player_camera.1 .0, Vec3::Z * 25.0);
-
-    player_camera.0.look_at(Vec3::ZERO, Vec3::Y);
-    player_camera.0.rotate_local_z(player_camera.2 .0);
+    player_camera.0.translation = character.0.translation + character.1.local_translation;
+    player_camera.0.look_at(Vec3::ZERO, *character.0.up());
+    player_camera.0.rotate_local_z(0.0);
 }
 
 // This system prints messages when you press or release the left mouse button:
@@ -329,6 +309,9 @@ fn spawn_character_system(
             player_input: CharacterPlayerInputComponent {
                 global_input: Vec3::ZERO,
             },
+            camera_character_offset: CharacterPlayerCameraOffsetComponent {
+                local_translation: Vec3::new(0.0, 5.0, 5.0),
+            },
         },))
         .with_children(|parent| {
             parent.spawn(PbrBundle {
@@ -349,7 +332,6 @@ fn spawn_player_camera_system(mut commands: Commands) {
     commands.spawn((
         PlayerCameraBundle {
             is: PlayerCameraIsComponent,
-            rotation_coordinate: PlayerCameraRotationCoordinateComponent(Quat::IDENTITY),
             roll: PlayerCameraRollComponent(0.0),
         },
         Camera3dBundle {
@@ -368,10 +350,6 @@ fn main() {
         .add_systems(Startup, spawn_character_system)
         .add_systems(Startup, spawn_player_camera_system)
         .add_systems(Startup, spawn_props_system)
-        .add_systems(
-            FixedUpdate,
-            update_player_camera_coordinates_using_input_system,
-        )
         .add_systems(FixedUpdate, update_player_camera_roll_using_input_system)
         .add_systems(
             FixedUpdate,
