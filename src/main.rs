@@ -12,6 +12,7 @@ use bevy::{
     gizmos::gizmos::Gizmos,
     hierarchy::BuildChildren,
     input::{
+        keyboard::KeyCode,
         mouse::{MouseButton, MouseMotion},
         ButtonInput,
     },
@@ -35,9 +36,19 @@ use std::f32::consts::PI;
 #[derive(Component)]
 struct CharacterIsComponent;
 
+/// Character component.
 #[derive(Component)]
-struct InputRotationFromPlayerCameraToCharacterComponent {
-    rotation_quat: Quat,
+struct CharacterRotationFromGlobalToCharacterComponent {
+    /// rotation from global space to character space
+    rotation_from_global_to_character_quat: Quat,
+}
+
+/// component with input from player for character.
+#[derive(Component)]
+struct CharacterPlayerInputComponent {
+    /// player input vector in global space
+    /// ie, input in camera space transformed to global space
+    global_input: Vec3,
 }
 
 #[derive(Bundle)]
@@ -46,8 +57,8 @@ struct CharacterBundle {
     global_transform: GlobalTransform,
     transform: Transform,
     inherited_visibility: InheritedVisibility,
-    input_rotation_from_player_camera_to_character:
-        InputRotationFromPlayerCameraToCharacterComponent,
+    rotation_from_player_camera_to_character: CharacterRotationFromGlobalToCharacterComponent,
+    player_input: CharacterPlayerInputComponent,
 }
 
 // endregion
@@ -136,11 +147,11 @@ fn mouse_player_camera_roll_on_mouse_button_input(
 
 // region
 
-fn update_character_rotation_transformation_system(
+fn update_character_rotation_from_player_to_character_system(
     mut character_query: Query<
         (
             &Transform,
-            &mut InputRotationFromPlayerCameraToCharacterComponent,
+            &mut CharacterRotationFromGlobalToCharacterComponent,
         ),
         With<CharacterIsComponent>,
     >,
@@ -151,21 +162,50 @@ fn update_character_rotation_transformation_system(
     let camera_up = player_camera.up();
     let character_up = character.0.up();
 
-    character.1.rotation_quat = Quat::from_rotation_arc(*camera_up, *character_up);
+    character.1.rotation_from_global_to_character_quat =
+        Quat::from_rotation_arc(*camera_up, *character_up);
+}
+
+fn update_character_movement_player_input_system(
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+    player_camera_query: Query<&GlobalTransform, With<PlayerCameraIsComponent>>,
+    mut character_query: Query<(&mut CharacterPlayerInputComponent,), With<CharacterIsComponent>>,
+) {
+    let mut character = character_query.single_mut();
+    let player_global_transform = player_camera_query.single();
+
+    let mut local_input = Vec3::ZERO;
+    if keyboard_input.pressed(KeyCode::KeyW) {
+        local_input.z -= 1.0;
+    }
+
+    if keyboard_input.pressed(KeyCode::KeyS) {
+        local_input.z += 1.0;
+    }
+
+    if keyboard_input.pressed(KeyCode::KeyD) {
+        local_input.x += 1.0;
+    }
+
+    if keyboard_input.pressed(KeyCode::KeyA) {
+        local_input.x -= 1.0;
+    }
+
+    // taken from https://github.com/bevyengine/bevy/discussions/8501
+    character.0.global_input = player_global_transform
+        .affine()
+        .transform_vector3(local_input)
 }
 
 // endregion
 
 // region debug systems
 
-fn draw_gizmos_system(
+fn draw_character_rotation_from_global_to_character_gizmos_system(
     mut gizmos: Gizmos,
     player_camera_query: Query<&Transform, With<PlayerCameraIsComponent>>,
     character_query: Query<
-        (
-            &Transform,
-            &InputRotationFromPlayerCameraToCharacterComponent,
-        ),
+        (&Transform, &CharacterRotationFromGlobalToCharacterComponent),
         With<CharacterIsComponent>,
     >,
 ) {
@@ -173,19 +213,45 @@ fn draw_gizmos_system(
     let character = character_query.single();
     gizmos.arrow(
         character.0.translation,
-        Quat::mul_vec3(
-            character.1.rotation_quat,
-            character.0.translation + *player_camera.forward(),
-        ),
+        character.0.translation
+            + Quat::mul_vec3(
+                character.1.rotation_from_global_to_character_quat,
+                *player_camera.forward(),
+            ),
         Color::BLUE,
     );
     gizmos.arrow(
         character.0.translation,
-        Quat::mul_vec3(
-            character.1.rotation_quat,
-            character.0.translation + *player_camera.right(),
-        ),
+        character.0.translation
+            + Quat::mul_vec3(
+                character.1.rotation_from_global_to_character_quat,
+                *player_camera.right(),
+            ),
         Color::RED,
+    );
+}
+
+fn draw_character_input_gizmos_system(
+    mut gizmos: Gizmos,
+    character_query: Query<
+        (
+            &Transform,
+            &CharacterPlayerInputComponent,
+            &CharacterRotationFromGlobalToCharacterComponent,
+        ),
+        With<CharacterIsComponent>,
+    >,
+) {
+    let character = character_query.single();
+
+    gizmos.arrow(
+        character.0.translation,
+        character.0.translation
+            + Quat::mul_vec3(
+                character.2.rotation_from_global_to_character_quat,
+                character.1.global_input,
+            ),
+        Color::YELLOW,
     );
 }
 
@@ -256,10 +322,13 @@ fn spawn_character_system(
             global_transform: GlobalTransform::default(),
             transform: Transform::from_xyz(0.0, 0.0, 0.0),
             inherited_visibility: InheritedVisibility::default(),
-            input_rotation_from_player_camera_to_character:
-                InputRotationFromPlayerCameraToCharacterComponent {
-                    rotation_quat: Quat::IDENTITY,
+            rotation_from_player_camera_to_character:
+                CharacterRotationFromGlobalToCharacterComponent {
+                    rotation_from_global_to_character_quat: Quat::IDENTITY,
                 },
+            player_input: CharacterPlayerInputComponent {
+                global_input: Vec3::ZERO,
+            },
         },))
         .with_children(|parent| {
             parent.spawn(PbrBundle {
@@ -304,12 +373,20 @@ fn main() {
             update_player_camera_coordinates_using_input_system,
         )
         .add_systems(FixedUpdate, update_player_camera_roll_using_input_system)
-        .add_systems(FixedUpdate, update_character_rotation_transformation_system)
+        .add_systems(
+            FixedUpdate,
+            update_character_rotation_from_player_to_character_system,
+        )
+        .add_systems(FixedUpdate, update_character_movement_player_input_system)
         .add_systems(
             FixedUpdate,
             update_player_camera_to_character_rotation_using_coordinates_system,
         )
         .add_systems(Update, mouse_player_camera_roll_on_mouse_button_input)
-        .add_systems(Update, draw_gizmos_system)
+        .add_systems(
+            Update,
+            draw_character_rotation_from_global_to_character_gizmos_system,
+        )
+        .add_systems(Update, draw_character_input_gizmos_system)
         .run();
 }
