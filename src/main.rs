@@ -130,6 +130,22 @@ fn update_player_camera_to_character_rotation_using_coordinates_system(
     player_camera.0.rotate_local_z(player_camera.2 .0);
 }
 
+// This system prints messages when you press or release the left mouse button:
+fn mouse_player_camera_roll_on_mouse_button_input(
+    mouse_button_input: Res<ButtonInput<MouseButton>>,
+    mut player_camera_query: Query<&mut PlayerCameraRollComponent, With<PlayerCameraIsComponent>>,
+) {
+    if !mouse_button_input.just_pressed(MouseButton::Middle) {
+        return;
+    }
+
+    player_camera_query.single_mut().0 = 0.0;
+}
+
+// endregion
+
+// region
+
 fn update_character_rotation_transformation_system(
     mut character_query: Query<
         (
@@ -289,6 +305,8 @@ fn main() {
             FixedUpdate,
             update_player_camera_to_character_rotation_using_coordinates_system,
         )
+        .add_systems(Update, mouse_player_camera_roll_on_mouse_button_input)
         .add_systems(Update, draw_gizmos_system)
         .run();
 }
+LeftLeft

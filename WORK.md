@@ -1,16 +1,3 @@
-# STORY determine transformation from camera to character
-
-## ACCEPTANCE
-
-I will know this is complete when:
-
-- camera pitch is respected
-- camera roll is respected
-
-## TODO
-
-- refactor spherical coordinates to quaternion
-
 # STORY movement using physics engine
 
 ## ACCEPTANCE
