@@ -69,8 +69,12 @@ struct CharacterBundle {
 struct PlayerCameraIsComponent;
 
 #[derive(Component)]
-struct PlayerCameraCharacterOffsetComponent {
-    local_translation: Vec3,
+struct PlayerCameraLocalTranslationComponent {
+    distance: f32,
+    rotation: f32,
+    height: f32,
+    // relative to character head
+    focus: Vec3,
 }
 
 #[derive(Component)]
@@ -79,7 +83,7 @@ struct PlayerCameraRollComponent(pub f32);
 #[derive(Bundle)]
 struct PlayerCameraBundle {
     is: PlayerCameraIsComponent,
-    camera_character_offset: PlayerCameraCharacterOffsetComponent,
+    camera_cylinder_local_translation: PlayerCameraLocalTranslationComponent,
     camera_roll: PlayerCameraRollComponent,
 }
 
@@ -98,15 +102,13 @@ fn update_player_camera_roll_using_input_system(
     }
 }
 
-fn update_character_camera_rotation_using_input_system(
+fn update_character_camera_local_translation_coordinates_using_input_system(
     mut mouse_events: EventReader<MouseMotion>,
-    mut character_query: Query<(&Transform,), (With<CharacterIsComponent>,)>,
     mut player_camera_query: Query<
-        (&mut Transform, &mut PlayerCameraCharacterOffsetComponent),
+        (&mut Transform, &mut PlayerCameraLocalTranslationComponent),
         (With<PlayerCameraIsComponent>, Without<CharacterIsComponent>),
     >,
 ) {
-    let character = character_query.single_mut();
     let mut player_camera = player_camera_query.single_mut();
 
     let mut input = Vec2::ZERO;
@@ -115,15 +117,9 @@ fn update_character_camera_rotation_using_input_system(
         input.y += mouse_event.delta.y * 0.001;
     }
 
-    let pitch_rotation_quat = Quat::from_axis_angle(*player_camera.0.up(), input.x);
-    let yaw_rotation_quat = Quat::from_axis_angle(*player_camera.0.right(), input.y);
-    // let pitch_rotation_quat = Quat::from_axis_angle(*character.0.up(), input.x);
-    // let yaw_rotation_quat = Quat::from_axis_angle(*character.0.right(), input.y);
-
-    player_camera.1.local_translation =
-        Quat::mul_vec3(yaw_rotation_quat, player_camera.1.local_translation);
-    player_camera.1.local_translation =
-        Quat::mul_vec3(pitch_rotation_quat, player_camera.1.local_translation);
+    player_camera.1.rotation += input.x;
+    player_camera.1.focus.y -= input.y;
+    player_camera.1.height -= input.y * 0.5;
 }
 
 fn update_player_camera_translation_system(
@@ -134,7 +130,7 @@ fn update_player_camera_translation_system(
     mut player_camera_query: Query<
         (
             &mut Transform,
-            &PlayerCameraCharacterOffsetComponent,
+            &PlayerCameraLocalTranslationComponent,
             &PlayerCameraRollComponent,
         ),
         (With<PlayerCameraIsComponent>, Without<CharacterIsComponent>),
@@ -143,9 +139,21 @@ fn update_player_camera_translation_system(
     let character = character_query.single_mut();
     let mut player_camera = player_camera_query.single_mut();
 
-    player_camera.0.translation = character.0.translation + player_camera.1.local_translation;
+    let relative_x_translation = player_camera.1.distance * f32::cos(player_camera.1.rotation);
+    let relative_z_translation = player_camera.1.distance * f32::sin(player_camera.1.rotation);
+    let relative_y_translation = player_camera.1.height;
 
-    player_camera.0.look_at(Vec3::ZERO, Vec3::Y);
+    player_camera.0.translation = character.0.translation
+        + Vec3::new(
+            relative_x_translation,
+            relative_y_translation,
+            relative_z_translation,
+        );
+
+    player_camera
+        .0
+        .look_at(character.0.translation + player_camera.1.focus, Vec3::Y);
+
     player_camera.0.rotate_local_z(player_camera.2 .0);
 }
 
@@ -368,8 +376,11 @@ fn spawn_player_camera_system(mut commands: Commands) {
         PlayerCameraBundle {
             is: PlayerCameraIsComponent,
             camera_roll: PlayerCameraRollComponent(0.0),
-            camera_character_offset: PlayerCameraCharacterOffsetComponent {
-                local_translation: Vec3::new(0.0, 15.0, 15.0),
+            camera_cylinder_local_translation: PlayerCameraLocalTranslationComponent {
+                distance: 10.0,
+                rotation: 0.0,
+                height: 2.0,
+                focus: Vec3::new(0.0, 3.0, 0.0),
             },
         },
         Camera3dBundle {
@@ -391,7 +402,7 @@ fn main() {
         .add_systems(FixedUpdate, update_player_camera_roll_using_input_system)
         .add_systems(
             FixedUpdate,
-            update_character_camera_rotation_using_input_system,
+            update_character_camera_local_translation_coordinates_using_input_system,
         )
         .add_systems(
             FixedUpdate,
