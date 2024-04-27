@@ -115,9 +115,10 @@ fn update_character_camera_rotation_using_input_system(
         input.y += mouse_event.delta.y * 0.001;
     }
 
-    //let yaw_rotation_quat = Quat::from_axis_angle(*player_camera.0.up(), input.x);
-    let pitch_rotation_quat = Quat::from_axis_angle(*character.0.up(), input.x);
-    let yaw_rotation_quat = Quat::from_axis_angle(*character.0.right(), input.y);
+    let pitch_rotation_quat = Quat::from_axis_angle(*player_camera.0.up(), input.x);
+    let yaw_rotation_quat = Quat::from_axis_angle(*player_camera.0.right(), input.y);
+    // let pitch_rotation_quat = Quat::from_axis_angle(*character.0.up(), input.x);
+    // let yaw_rotation_quat = Quat::from_axis_angle(*character.0.right(), input.y);
 
     player_camera.1.local_translation =
         Quat::mul_vec3(yaw_rotation_quat, player_camera.1.local_translation);
@@ -368,7 +369,7 @@ fn spawn_player_camera_system(mut commands: Commands) {
             is: PlayerCameraIsComponent,
             camera_roll: PlayerCameraRollComponent(0.0),
             camera_character_offset: PlayerCameraCharacterOffsetComponent {
-                local_translation: Vec3::new(0.0, 5.0, 5.0),
+                local_translation: Vec3::new(0.0, 15.0, 15.0),
             },
         },
         Camera3dBundle {
