@@ -34,11 +34,11 @@ use std::f32::consts::PI;
 // region character
 
 #[derive(Component)]
-struct CharacterIsComponent;
+struct CharacterTagComponent;
 
 /// Character component.
 #[derive(Component)]
-struct CharacterRotationFromGlobalToCharacterComponent {
+struct CharacterRotationFromGlobalToCharacterParametersComponent {
     /// rotation from global space to character space
     rotation_from_global_to_character_quat: Quat,
 }
@@ -53,11 +53,11 @@ struct CharacterPlayerInputComponent {
 
 #[derive(Bundle)]
 struct CharacterBundle {
-    is: CharacterIsComponent,
+    tag: CharacterTagComponent,
     global_transform: GlobalTransform,
     transform: Transform,
     inherited_visibility: InheritedVisibility,
-    rotation_from_player_to_character: CharacterRotationFromGlobalToCharacterComponent,
+    rotation_from_player_to_character: CharacterRotationFromGlobalToCharacterParametersComponent,
     player_input: CharacterPlayerInputComponent,
 }
 
@@ -66,11 +66,11 @@ struct CharacterBundle {
 // region camera
 
 #[derive(Component)]
-struct PlayerIsComponent;
+struct PlayerTagComponent;
 
 /// cordinates to
 struct CylinderCoordinates3d {
-    // distance to the center
+    // dTagtance to the center
     distance: f32,
     // rotation about the center
     rotation: f32,
@@ -78,9 +78,8 @@ struct CylinderCoordinates3d {
     height: f32,
 }
 
-/// describes *current* coordinates, local to character space, for the player camera.
 #[derive(Component)]
-struct PlayerCameraLocalCharacterCoordinatesComponent {
+struct PlayerCameraCharacterParametersComponent {
     /// translation with respect to the character
     translation_cylinder_coordinates: CylinderCoordinates3d,
     // point to lookat
@@ -88,18 +87,18 @@ struct PlayerCameraLocalCharacterCoordinatesComponent {
 }
 
 #[derive(Component)]
-struct PlayerCameraRollComponent(pub f32);
+struct PlayerCameraRollParametersComponent(pub f32);
 
 #[derive(Bundle)]
 struct PlayerBundle {
-    is: PlayerIsComponent,
-    camera_cylinder_local_translation: PlayerCameraLocalCharacterCoordinatesComponent,
-    camera_roll: PlayerCameraRollComponent,
+    tag: PlayerTagComponent,
+    camera_character_parameters: PlayerCameraCharacterParametersComponent,
+    camera_roll_parameters: PlayerCameraRollParametersComponent,
 }
 
 fn update_player_roll_using_input_system(
     mouse_button_input: Res<ButtonInput<MouseButton>>,
-    mut player_query: Query<&mut PlayerCameraRollComponent, With<PlayerIsComponent>>,
+    mut player_query: Query<&mut PlayerCameraRollParametersComponent, With<PlayerTagComponent>>,
 ) {
     let mut player = player_query.single_mut();
 
@@ -112,14 +111,14 @@ fn update_player_roll_using_input_system(
     }
 }
 
-fn update_character_camera_local_translation_coordinates_using_input_system(
+fn update_player_local_character_camera_parameters_using_input_system(
     mut mouse_events: EventReader<MouseMotion>,
     mut player_query: Query<
         (
             &mut Transform,
-            &mut PlayerCameraLocalCharacterCoordinatesComponent,
+            &mut PlayerCameraCharacterParametersComponent,
         ),
-        (With<PlayerIsComponent>, Without<CharacterIsComponent>),
+        (With<PlayerTagComponent>, Without<CharacterTagComponent>),
     >,
 ) {
     let mut player = player_query.single_mut();
@@ -138,15 +137,15 @@ fn update_character_camera_local_translation_coordinates_using_input_system(
 fn update_player_translation_system(
     mut character_query: Query<
         (&Transform,),
-        (With<CharacterIsComponent>, Without<PlayerIsComponent>),
+        (With<CharacterTagComponent>, Without<PlayerTagComponent>),
     >,
     mut player_query: Query<
         (
             &mut Transform,
-            &PlayerCameraLocalCharacterCoordinatesComponent,
-            &PlayerCameraRollComponent,
+            &PlayerCameraCharacterParametersComponent,
+            &PlayerCameraRollParametersComponent,
         ),
-        (With<PlayerIsComponent>, Without<CharacterIsComponent>),
+        (With<PlayerTagComponent>, Without<CharacterTagComponent>),
     >,
 ) {
     let character = character_query.single_mut();
@@ -172,10 +171,10 @@ fn update_player_translation_system(
     player.0.rotate_local_z(player.2 .0);
 }
 
-// This system prints messages when you press or release the left mouse button:
+// ThTag system prints messages when you press or release the left mouse button:
 fn mouse_player_roll_on_mouse_button_input(
     mouse_button_input: Res<ButtonInput<MouseButton>>,
-    mut player_query: Query<&mut PlayerCameraRollComponent, With<PlayerIsComponent>>,
+    mut player_query: Query<&mut PlayerCameraRollParametersComponent, With<PlayerTagComponent>>,
 ) {
     if !mouse_button_input.just_pressed(MouseButton::Middle) {
         return;
@@ -192,11 +191,11 @@ fn update_character_rotation_from_player_to_character_system(
     mut character_query: Query<
         (
             &Transform,
-            &mut CharacterRotationFromGlobalToCharacterComponent,
+            &mut CharacterRotationFromGlobalToCharacterParametersComponent,
         ),
-        With<CharacterIsComponent>,
+        With<CharacterTagComponent>,
     >,
-    player_query: Query<&Transform, With<PlayerIsComponent>>,
+    player_query: Query<&Transform, With<PlayerTagComponent>>,
 ) {
     let mut character = character_query.single_mut();
     let player = player_query.single();
@@ -209,8 +208,8 @@ fn update_character_rotation_from_player_to_character_system(
 
 fn update_character_movement_player_input_system(
     keyboard_input: Res<ButtonInput<KeyCode>>,
-    player_query: Query<&GlobalTransform, With<PlayerIsComponent>>,
-    mut character_query: Query<(&mut CharacterPlayerInputComponent,), With<CharacterIsComponent>>,
+    player_query: Query<&GlobalTransform, With<PlayerTagComponent>>,
+    mut character_query: Query<(&mut CharacterPlayerInputComponent,), With<CharacterTagComponent>>,
 ) {
     let mut character = character_query.single_mut();
     let player_global_transform = player_query.single();
@@ -232,7 +231,7 @@ fn update_character_movement_player_input_system(
         local_input.x -= 1.0;
     }
 
-    // taken from https://github.com/bevyengine/bevy/discussions/8501
+    // taken from https://github.com/bevyengine/bevy/dTagcussions/8501
     character.0.global_input = player_global_transform
         .affine()
         .transform_vector3(local_input)
@@ -244,10 +243,13 @@ fn update_character_movement_player_input_system(
 
 fn draw_character_rotation_from_global_to_character_gizmos_system(
     mut gizmos: Gizmos,
-    player: Query<&Transform, With<PlayerIsComponent>>,
+    player: Query<&Transform, With<PlayerTagComponent>>,
     character_query: Query<
-        (&Transform, &CharacterRotationFromGlobalToCharacterComponent),
-        With<CharacterIsComponent>,
+        (
+            &Transform,
+            &CharacterRotationFromGlobalToCharacterParametersComponent,
+        ),
+        With<CharacterTagComponent>,
     >,
 ) {
     let player = player.single();
@@ -278,9 +280,9 @@ fn draw_character_input_gizmos_system(
         (
             &Transform,
             &CharacterPlayerInputComponent,
-            &CharacterRotationFromGlobalToCharacterComponent,
+            &CharacterRotationFromGlobalToCharacterParametersComponent,
         ),
-        With<CharacterIsComponent>,
+        With<CharacterTagComponent>,
     >,
 ) {
     let character = character_query.single();
@@ -359,13 +361,14 @@ fn spawn_character_system(
 ) {
     commands
         .spawn((CharacterBundle {
-            is: CharacterIsComponent,
+            tag: CharacterTagComponent,
             global_transform: GlobalTransform::default(),
             transform: Transform::from_xyz(0.0, 0.0, 0.0),
             inherited_visibility: InheritedVisibility::default(),
-            rotation_from_player_to_character: CharacterRotationFromGlobalToCharacterComponent {
-                rotation_from_global_to_character_quat: Quat::IDENTITY,
-            },
+            rotation_from_player_to_character:
+                CharacterRotationFromGlobalToCharacterParametersComponent {
+                    rotation_from_global_to_character_quat: Quat::IDENTITY,
+                },
             player_input: CharacterPlayerInputComponent {
                 global_input: Vec3::ZERO,
             },
@@ -388,15 +391,15 @@ fn spawn_player_system(mut commands: Commands) {
     // camera
     commands.spawn((
         PlayerBundle {
-            is: PlayerIsComponent,
-            camera_roll: PlayerCameraRollComponent(0.0),
-            camera_cylinder_local_translation: PlayerCameraLocalCharacterCoordinatesComponent {
+            tag: PlayerTagComponent,
+            camera_roll_parameters: PlayerCameraRollParametersComponent(0.0),
+            camera_character_parameters: PlayerCameraCharacterParametersComponent {
                 translation_cylinder_coordinates: CylinderCoordinates3d {
-                    distance: 10.0,
+                    distance: 15.0,
                     rotation: 0.0,
-                    height: 2.0,
+                    height: 5.0,
                 },
-                focus: Vec3::new(0.0, 3.0, 0.0),
+                focus: Vec3::new(0.0, 4.0, 0.0),
             },
         },
         Camera3dBundle {
@@ -418,7 +421,7 @@ fn main() {
         .add_systems(FixedUpdate, update_player_roll_using_input_system)
         .add_systems(
             FixedUpdate,
-            update_character_camera_local_translation_coordinates_using_input_system,
+            update_player_local_character_camera_parameters_using_input_system,
         )
         .add_systems(
             FixedUpdate,
