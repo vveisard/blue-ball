@@ -2,6 +2,22 @@
 
 ---
 
+# STORY As a user, I want camera coordinates to transition over time
+
+## ACCEPTANCE
+
+I can see the desired camera coordinate gizmo
+
+## DESIGN
+
+I should store the desired component state in a "transition component" and animate in the "transition_system"
+
+## TODO implment transition component
+
+## TODO implment transition system, player_camera_coordinates_transition_system
+
+---
+
 # STORY As a user, I want character orientation to drive camera roll
 
 ## DESIGN
@@ -12,20 +28,8 @@
 - lerp
 - down
 
-Upper and lower thresholds, over which the camera will simply snap.
-ie, you have to be over 45 degrees for the camera to start rotating
-
----
-
-# STORY As a user, I want camera coordinates to transition over time
-
-## DESIGN
-
-I should store the desired component state in a "transition component" and animate in the "transition_system"
-
-## TODO implment transition component
-
-## TODO implment transition system, player_camera_coordinates_transition_system
+in the up and down ranges, the camera will snap to vertical
+in the middle 45 degree range, the camera will rotate with the character
 
 ---
 
@@ -50,6 +54,8 @@ I will know this is complete when:
 - I can use input to move along a sphere collider using Rapier
 - I cannot enter boxes
 
+---
+
 # STORY mesh movement
 
 ## TODO add a physics mesh
@@ -65,3 +71,28 @@ I want to validate I do not leave the mesh collider, then stop on the edge.
 - cannot leave the mesh collider (will become "GroundLedgeTrip" aka "otto" machine)
 - how do I stop _exactly_ on the edge?
 - clearly if I became airborn I should stop, but stopping _on the edge_ is a bit more difficult...
+
+---
+
+# STORY I want camera zones
+
+## DESIGN
+
+Thinking about camera zones. Will probably take the form of a "blend" component and a system which sets the desired camera coordinate to the blended value
+
+```
+struct PlayerCameraBlendComponent {
+  desired_coordinates: PlayerCameraCoordinatesComponent
+}
+```
+
+camera zones have a physics trigger which adds the blend component when the character enters that camera zone.
+
+## ACCEPTANCE
+
+I will know this is complete when:
+
+- I can see camera zones in the Bevy Physics render
+- When in camera zones, my camera is blended between my current and the desired using a "speed" value
+
+## TODO add Bevy to app
