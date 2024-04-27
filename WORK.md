@@ -6,11 +6,30 @@ I can see the desired camera coordinate gizmo
 
 ## DESIGN
 
-I should store the desired component state in a "transition component" and animate in the "transition_system"
+I should store the desired component state in a "transition component" and animate in the "camera_coordinate_transition_system"
+
+// parameters for camera transition
+DesiredCameraTransitionParametersComponent
+easing_function:
 
 ## TODO implment transition component
 
 ## TODO implment transition system, player_camera_coordinates_transition_system
+
+---
+
+# STORY As a user, I want character orientation to drive camera roll
+
+## DESIGN
+
+3 ranges:
+
+- up
+- lerp
+- down
+
+in the up and down ranges, the camera will snap to vertical
+in the middle 45 degree range, the camera will rotate with the character
 
 ---
 
@@ -109,18 +128,3 @@ I will know this is working when:
 ## IMPLEMENTATION
 
 - I should consider collision test to solve my "edge" problem: project point with the final position of the character's translation, in order to find the point which was left
-
----
-
-# STORY As a user, I want character orientation to drive camera roll
-
-## DESIGN
-
-3 ranges:
-
-- up
-- lerp
-- down
-
-in the up and down ranges, the camera will snap to vertical
-in the middle 45 degree range, the camera will rotate with the character

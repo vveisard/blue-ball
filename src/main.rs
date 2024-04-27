@@ -238,8 +238,6 @@ fn update_character_movement_player_input_system(
     if keyboard_input.pressed(KeyCode::KeyA) {
         local_input.x -= 1.0;
     }
-
-    // taken from https://github.com/bevyengine/bevy/dTagcussions/8501
     character.0.global_input = player_global_transform
         .affine()
         .transform_vector3(local_input)
