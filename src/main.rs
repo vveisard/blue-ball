@@ -249,6 +249,38 @@ fn update_character_movement_player_input_system(
 
 // region debug systems
 
+fn draw_character_transform_gizmos_system(
+    mut gizmos: Gizmos,
+    character_query: Query<
+        (
+            &Transform,
+            &CharacterPlayerInputComponent,
+            &CharacterRotationFromGlobalToCharacterParametersComponent,
+        ),
+        With<CharacterTagComponent>,
+    >,
+) {
+    let character = character_query.single();
+
+    gizmos.arrow(
+        character.0.translation,
+        character.0.translation + *character.0.right(),
+        Color::RED.with_a(0.5),
+    );
+
+    gizmos.arrow(
+        character.0.translation,
+        character.0.translation + *character.0.up(),
+        Color::GREEN.with_a(0.5),
+    );
+
+    gizmos.arrow(
+        character.0.translation,
+        character.0.translation + *character.0.forward(),
+        Color::BLUE.with_a(0.5),
+    );
+}
+
 fn draw_character_rotation_from_global_to_character_gizmos_system(
     mut gizmos: Gizmos,
     player: Query<&Transform, With<PlayerTagComponent>>,
@@ -269,7 +301,7 @@ fn draw_character_rotation_from_global_to_character_gizmos_system(
                 character.1.rotation_from_global_to_character_quat,
                 *player.forward(),
             ),
-        Color::BLUE,
+        Color::rgb(0.0, 1.0, 1.0),
     );
     gizmos.arrow(
         character.0.translation,
@@ -278,7 +310,7 @@ fn draw_character_rotation_from_global_to_character_gizmos_system(
                 character.1.rotation_from_global_to_character_quat,
                 *player.right(),
             ),
-        Color::RED,
+        Color::rgb(1.0, 0.0, 1.0),
     );
 }
 
@@ -442,6 +474,7 @@ fn main() {
             Update,
             draw_character_rotation_from_global_to_character_gizmos_system,
         )
+        .add_systems(Update, draw_character_transform_gizmos_system)
         .add_systems(Update, draw_character_input_gizmos_system)
         .run();
 }

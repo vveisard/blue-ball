@@ -1,11 +1,3 @@
-# STORY As a user, I want mouse wheel to drive camera distance
-
----
-
-# STORY as a user, I want character input gizmo to be magenta and cyan, and velocity to be white
-
----
-
 # STORY As a user, I want camera coordinates to transition over time
 
 ## ACCEPTANCE
@@ -22,26 +14,41 @@ I should store the desired component state in a "transition component" and anima
 
 ---
 
-# STORY As a user, I want character orientation to drive camera roll
-
-## DESIGN
-
-3 ranges:
-
-- up
-- lerp
-- down
-
-in the up and down ranges, the camera will snap to vertical
-in the middle 45 degree range, the camera will rotate with the character
-
----
-
 # ACTION
 
 show off the current build
+Publish on Twitch under my personal account
 
 ---
+
+## STORY physics body
+
+implement floating ball model as described in DESIGN below
+
+### ACCEPTANCE
+
+I can see Sonic's up direction in a Gizmo
+I can see Sonic's down direction in a Gizmo
+I can see Sonic's forward direction (speed) in a Gizmo
+I can see Sonic's down raycast in a Gizmo
+I can see Sonic's body (floating sphere) in a Gizmo
+I can see Sonic's center (floating dot) in a Gizmo
+
+### DESIGN
+
+Sonic is a "floating ball". the center of this ball is a "point", which is the location of his body
+he uses raycasting to hover above the stage
+this is like Bud from Grow Up
+
+Sonic has a stage collider.
+The stage collider is very small!
+
+Sonic's movement is entirely kinematic, except his stage collider.
+
+sonic has an "up" direction and a "down" direction
+sonic's "up" direction is the normal of the mesh he is on, and the up is the opposite direction.
+when on a mesh, sonic snaps to the mesh below his down direction (this means it must be less than 90 degrees)
+when sonic leaves a mesh, his up and down directions get reset.
 
 # STORY cuboid movement
 
@@ -78,31 +85,42 @@ I want to validate I do not leave the mesh collider, then stop on the edge.
 
 ## DESIGN
 
-- cannot leave the mesh collider (will become "GroundLedgeTrip" aka "otto" machine)
-- how do I stop _exactly_ on the edge?
-- clearly if I became airborn I should stop, but stopping _on the edge_ is a bit more difficult...
-
----
-
-# STORY I want camera zones
-
-## DESIGN
-
-Thinking about camera zones. Will probably take the form of a "blend" component and a system which sets the desired camera coordinate to the blended value
-
-```
-struct PlayerCameraBlendComponent {
-  desired_coordinates: PlayerCameraCoordinatesComponent
-}
-```
-
-camera zones have a physics trigger which adds the blend component when the character enters that camera zone.
+I should use an OBJ file
 
 ## ACCEPTANCE
 
-I will know this is complete when:
+- I can move freely in a "isosphere" model
+- I can move freely around an isosphere model
 
-- I can see camera zones in the Bevy Physics render
-- When in camera zones, my camera is blended between my current and the desired using a "speed" value
+---
 
-## TODO add Bevy to app
+# STORY mesh movement, prevent leaving mesh
+
+## ACCEPTANCE
+
+I will know this is working when:
+
+- I stop on the edge of the mesh
+
+## DESIGN
+
+- cannot leave the mesh collider (will become "GroundLedgeTrip" aka "otto" machine)
+
+## IMPLEMENTATION
+
+- I should consider collision test to solve my "edge" problem: project point with the final position of the character's translation, in order to find the point which was left
+
+---
+
+# STORY As a user, I want character orientation to drive camera roll
+
+## DESIGN
+
+3 ranges:
+
+- up
+- lerp
+- down
+
+in the up and down ranges, the camera will snap to vertical
+in the middle 45 degree range, the camera will rotate with the character
