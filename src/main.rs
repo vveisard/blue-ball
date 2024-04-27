@@ -84,30 +84,31 @@ struct PlayerCameraCharacterParametersComponent {
     translation_cylinder_coordinates: CylinderCoordinates3d,
     // point to lookat
     focus: Vec3,
-}
 
-#[derive(Component)]
-struct PlayerCameraRollParametersComponent(pub f32);
+    roll: f32,
+}
 
 #[derive(Bundle)]
 struct PlayerBundle {
     tag: PlayerTagComponent,
     camera_character_parameters: PlayerCameraCharacterParametersComponent,
-    camera_roll_parameters: PlayerCameraRollParametersComponent,
 }
 
 fn update_player_roll_using_input_system(
     mouse_button_input: Res<ButtonInput<MouseButton>>,
-    mut player_query: Query<&mut PlayerCameraRollParametersComponent, With<PlayerTagComponent>>,
+    mut player_query: Query<
+        (&mut PlayerCameraCharacterParametersComponent,),
+        With<PlayerTagComponent>,
+    >,
 ) {
     let mut player = player_query.single_mut();
 
     if mouse_button_input.pressed(MouseButton::Left) {
-        player.0 -= 0.01
+        player.0.roll -= 0.01
     }
 
     if mouse_button_input.pressed(MouseButton::Right) {
-        player.0 += 0.01
+        player.0.roll += 0.01
     }
 }
 
@@ -148,11 +149,7 @@ fn update_player_translation_system(
         (With<CharacterTagComponent>, Without<PlayerTagComponent>),
     >,
     mut player_query: Query<
-        (
-            &mut Transform,
-            &PlayerCameraCharacterParametersComponent,
-            &PlayerCameraRollParametersComponent,
-        ),
+        (&mut Transform, &PlayerCameraCharacterParametersComponent),
         (With<PlayerTagComponent>, Without<CharacterTagComponent>),
     >,
 ) {
@@ -176,19 +173,22 @@ fn update_player_translation_system(
         .0
         .look_at(character.0.translation + player.1.focus, Vec3::Y);
 
-    player.0.rotate_local_z(player.2 .0);
+    player.0.rotate_local_z(player.1.roll);
 }
 
 // ThTag system prints messages when you press or release the left mouse button:
 fn mouse_player_roll_on_mouse_button_input(
     mouse_button_input: Res<ButtonInput<MouseButton>>,
-    mut player_query: Query<&mut PlayerCameraRollParametersComponent, With<PlayerTagComponent>>,
+    mut player_query: Query<
+        (&mut PlayerCameraCharacterParametersComponent,),
+        With<PlayerTagComponent>,
+    >,
 ) {
     if !mouse_button_input.just_pressed(MouseButton::Middle) {
         return;
     }
 
-    player_query.single_mut().0 = 0.0;
+    player_query.single_mut().0.roll = 0.0;
 }
 
 // endregion
@@ -430,7 +430,6 @@ fn spawn_player_system(mut commands: Commands) {
     commands.spawn((
         PlayerBundle {
             tag: PlayerTagComponent,
-            camera_roll_parameters: PlayerCameraRollParametersComponent(0.0),
             camera_character_parameters: PlayerCameraCharacterParametersComponent {
                 translation_cylinder_coordinates: CylinderCoordinates3d {
                     distance: 15.0,
@@ -438,6 +437,7 @@ fn spawn_player_system(mut commands: Commands) {
                     height: 5.0,
                 },
                 focus: Vec3::new(0.0, 4.0, 0.0),
+                roll: 0.0,
             },
         },
         Camera3dBundle {
