@@ -8,13 +8,23 @@ I can see the desired camera coordinate gizmo
 
 I should store the desired component state in a "transition component" and animate in the "camera_coordinate_transition_system"
 
+// data for spring parameters
+SpringParametersData
+
 // parameters for camera transition
-DesiredCameraTransitionParametersComponent
-easing_function:
+CameraSpringTransitionParametersComponent
+desired_coordinates: CylinderCoordinate3dData
+spring_parameters: SpringParametersData
 
-## TODO implment transition component
+// variables for spring transition
+CameraSpringTransitionVariablesComponent
+// TODO add all the spring parameter values
 
-## TODO implment transition system, player_camera_coordinates_transition_system
+transition_camera_coordinates_system
+
+### TODO implment transition component
+
+### TODO implment transition system, player_camera_coordinates_transition_system
 
 ---
 
