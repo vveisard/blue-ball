@@ -13,7 +13,7 @@ use bevy::{
     hierarchy::BuildChildren,
     input::{
         keyboard::KeyCode,
-        mouse::{MouseButton, MouseMotion},
+        mouse::{MouseButton, MouseMotion, MouseWheel},
         ButtonInput,
     },
     math::{
@@ -70,7 +70,7 @@ struct PlayerTagComponent;
 
 /// cordinates to
 struct CylinderCoordinates3d {
-    // dTagtance to the center
+    // distance to the center
     distance: f32,
     // rotation about the center
     rotation: f32,
@@ -112,7 +112,8 @@ fn update_player_roll_using_input_system(
 }
 
 fn update_player_local_character_camera_parameters_using_input_system(
-    mut mouse_events: EventReader<MouseMotion>,
+    mut mouse_motion_events: EventReader<MouseMotion>,
+    mut mouse_wheel_events: EventReader<MouseWheel>,
     mut player_query: Query<
         (
             &mut Transform,
@@ -124,10 +125,17 @@ fn update_player_local_character_camera_parameters_using_input_system(
     let mut player = player_query.single_mut();
 
     let mut input = Vec2::ZERO;
-    for mouse_event in mouse_events.read() {
+    for mouse_event in mouse_motion_events.read() {
         input.x += mouse_event.delta.x * 0.001;
         input.y += mouse_event.delta.y * 0.001;
     }
+
+    let mut zoom_input: f32 = 0.0;
+    for mouse_event in mouse_wheel_events.read() {
+        zoom_input += mouse_event.y * 0.1;
+    }
+
+    player.1.translation_cylinder_coordinates.distance -= zoom_input;
 
     player.1.translation_cylinder_coordinates.rotation += input.x;
     player.1.focus.y -= input.y;

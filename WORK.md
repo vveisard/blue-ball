@@ -2,6 +2,10 @@
 
 ---
 
+# STORY as a user, I want character input gizmo to be magenta and cyan, and velocity to be white
+
+---
+
 # STORY As a user, I want camera coordinates to transition over time
 
 ## ACCEPTANCE
@@ -30,6 +34,12 @@ I should store the desired component state in a "transition component" and anima
 
 in the up and down ranges, the camera will snap to vertical
 in the middle 45 degree range, the camera will rotate with the character
+
+---
+
+# ACTION
+
+show off the current build
 
 ---
 
