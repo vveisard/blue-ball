@@ -1,5 +1,9 @@
 # STORY As a user, I want camera coordinates to transition over time
 
+## TODO gizmo
+
+- draw the desired transform
+
 ## ACCEPTANCE
 
 I can see the desired camera coordinate gizmo
@@ -21,25 +25,6 @@ CameraSpringTransitionVariablesComponent
 // TODO add all the spring parameter values
 
 transition_camera_coordinates_system
-
-### TODO implment transition component
-
-### TODO implment transition system, player_camera_coordinates_transition_system
-
----
-
-# STORY As a user, I want character orientation to drive camera roll
-
-## DESIGN
-
-3 ranges:
-
-- up
-- lerp
-- down
-
-in the up and down ranges, the camera will snap to vertical
-in the middle 45 degree range, the camera will rotate with the character
 
 ---
 
@@ -120,6 +105,35 @@ I should use an OBJ file
 
 - I can move freely in a "isosphere" model
 - I can move freely around an isosphere model
+
+---
+
+---
+
+# STORY As a user, I want character orientation to drive camera roll
+
+## DESIGN
+
+3 ranges:
+
+- up
+- lerp
+- down
+
+in the up and down ranges, the camera will snap to vertical
+in the middle 45 degree range, the camera will rotate with the character
+
+---
+
+# ACTION
+
+Show off
+
+---
+
+# STORY as a user, I want to parameterize smooth_time using transition parameters
+
+`PlayerCameraTransitionCameraStateParemters`
 
 ---
 

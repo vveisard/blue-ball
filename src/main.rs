@@ -3,22 +3,15 @@ use bevy::{
     asset::Assets,
     core_pipeline::core_3d::Camera3dBundle,
     ecs::{
-        bundle::Bundle,
-        component::Component,
-        event::EventReader,
-        query::{With, Without},
+        query::With,
         system::{Commands, Query, Res, ResMut},
     },
     gizmos::gizmos::Gizmos,
     hierarchy::BuildChildren,
-    input::{
-        keyboard::KeyCode,
-        mouse::{MouseButton, MouseMotion, MouseWheel},
-        ButtonInput,
-    },
+    input::{keyboard::KeyCode, ButtonInput},
     math::{
         primitives::{Capsule3d, Circle, Cuboid},
-        Quat, Vec2, Vec3,
+        Quat, Vec3,
     },
     pbr::{
         light_consts, AlphaMode, AmbientLight, CascadeShadowConfigBuilder, DirectionalLight,
@@ -29,171 +22,30 @@ use bevy::{
     utils::default,
     DefaultPlugins,
 };
+use character::{
+    CharacterBundle, CharacterPlayerInputComponent,
+    CharacterRotationFromGlobalToCharacterParametersComponent, CharacterTagComponent,
+};
+use math::{
+    CylinderCoordinates3d, CylinderCoordinates3dSmoothDampTransitionVariables,
+    SmoothDampTransitionVariables,
+};
+use player::{
+    reset_player_roll_on_mouse_input_system,
+    transition_player_camera_current_state_rotation_system,
+    transition_player_camera_state_distance_system, transition_player_camera_state_focus_system,
+    transition_player_camera_state_height_system, transition_player_camera_state_roll_system,
+    update_player_camera_desired_state_coordinates_using_input_system,
+    update_player_camera_state_roll_using_input_system,
+    update_player_camera_transform_using_state_system, PlayerBundle,
+    PlayerCameraCurrentStateComponent, PlayerCameraDesiredStateComponent, PlayerCameraState,
+    PlayerCameraTransitionStateVariablesComponent, PlayerTagComponent,
+};
 use std::f32::consts::PI;
 
-// region character
-
-#[derive(Component)]
-struct CharacterTagComponent;
-
-/// Character component.
-#[derive(Component)]
-struct CharacterRotationFromGlobalToCharacterParametersComponent {
-    /// rotation from global space to character space
-    rotation_from_global_to_character_quat: Quat,
-}
-
-/// component with input from player for character.
-#[derive(Component)]
-struct CharacterPlayerInputComponent {
-    /// player input vector in global space
-    /// ie, input in camera space transformed to global space
-    global_input: Vec3,
-}
-
-#[derive(Bundle)]
-struct CharacterBundle {
-    tag: CharacterTagComponent,
-    global_transform: GlobalTransform,
-    transform: Transform,
-    inherited_visibility: InheritedVisibility,
-    rotation_from_player_to_character: CharacterRotationFromGlobalToCharacterParametersComponent,
-    player_input: CharacterPlayerInputComponent,
-}
-
-// endregion
-
-// region camera
-
-#[derive(Component)]
-struct PlayerTagComponent;
-
-/// cordinates to
-struct CylinderCoordinates3d {
-    // distance to the center
-    distance: f32,
-    // rotation about the center
-    rotation: f32,
-    // height about the cylinder
-    height: f32,
-}
-
-#[derive(Component)]
-struct PlayerCameraCharacterParametersComponent {
-    /// translation with respect to the character
-    translation_cylinder_coordinates: CylinderCoordinates3d,
-    // point to lookat
-    focus: Vec3,
-
-    roll: f32,
-}
-
-#[derive(Bundle)]
-struct PlayerBundle {
-    tag: PlayerTagComponent,
-    camera_character_parameters: PlayerCameraCharacterParametersComponent,
-}
-
-fn update_player_roll_using_input_system(
-    mouse_button_input: Res<ButtonInput<MouseButton>>,
-    mut player_query: Query<
-        (&mut PlayerCameraCharacterParametersComponent,),
-        With<PlayerTagComponent>,
-    >,
-) {
-    let mut player = player_query.single_mut();
-
-    if mouse_button_input.pressed(MouseButton::Left) {
-        player.0.roll -= 0.01
-    }
-
-    if mouse_button_input.pressed(MouseButton::Right) {
-        player.0.roll += 0.01
-    }
-}
-
-fn update_player_local_character_camera_parameters_using_input_system(
-    mut mouse_motion_events: EventReader<MouseMotion>,
-    mut mouse_wheel_events: EventReader<MouseWheel>,
-    mut player_query: Query<
-        (
-            &mut Transform,
-            &mut PlayerCameraCharacterParametersComponent,
-        ),
-        (With<PlayerTagComponent>, Without<CharacterTagComponent>),
-    >,
-) {
-    let mut player = player_query.single_mut();
-
-    let mut input = Vec2::ZERO;
-    for mouse_event in mouse_motion_events.read() {
-        input.x += mouse_event.delta.x * 0.001;
-        input.y += mouse_event.delta.y * 0.001;
-    }
-
-    let mut zoom_input: f32 = 0.0;
-    for mouse_event in mouse_wheel_events.read() {
-        zoom_input += mouse_event.y * 0.1;
-    }
-
-    player.1.translation_cylinder_coordinates.distance -= zoom_input;
-
-    player.1.translation_cylinder_coordinates.rotation += input.x;
-    player.1.focus.y -= input.y;
-    player.1.translation_cylinder_coordinates.height -= input.y * 0.5;
-}
-
-fn update_player_translation_system(
-    mut character_query: Query<
-        (&Transform,),
-        (With<CharacterTagComponent>, Without<PlayerTagComponent>),
-    >,
-    mut player_query: Query<
-        (&mut Transform, &PlayerCameraCharacterParametersComponent),
-        (With<PlayerTagComponent>, Without<CharacterTagComponent>),
-    >,
-) {
-    let character = character_query.single_mut();
-    let mut player = player_query.single_mut();
-
-    let relative_x_translation = player.1.translation_cylinder_coordinates.distance
-        * f32::cos(player.1.translation_cylinder_coordinates.rotation);
-    let relative_z_translation = player.1.translation_cylinder_coordinates.distance
-        * f32::sin(player.1.translation_cylinder_coordinates.rotation);
-    let relative_y_translation = player.1.translation_cylinder_coordinates.height;
-
-    player.0.translation = character.0.translation
-        + Vec3::new(
-            relative_x_translation,
-            relative_y_translation,
-            relative_z_translation,
-        );
-
-    player
-        .0
-        .look_at(character.0.translation + player.1.focus, Vec3::Y);
-
-    player.0.rotate_local_z(player.1.roll);
-}
-
-// ThTag system prints messages when you press or release the left mouse button:
-fn mouse_player_roll_on_mouse_button_input(
-    mouse_button_input: Res<ButtonInput<MouseButton>>,
-    mut player_query: Query<
-        (&mut PlayerCameraCharacterParametersComponent,),
-        With<PlayerTagComponent>,
-    >,
-) {
-    if !mouse_button_input.just_pressed(MouseButton::Middle) {
-        return;
-    }
-
-    player_query.single_mut().0.roll = 0.0;
-}
-
-// endregion
-
-// region
+mod character;
+mod math;
+mod player;
 
 fn update_character_rotation_from_player_to_character_system(
     mut character_query: Query<
@@ -430,14 +282,39 @@ fn spawn_player_system(mut commands: Commands) {
     commands.spawn((
         PlayerBundle {
             tag: PlayerTagComponent,
-            camera_character_parameters: PlayerCameraCharacterParametersComponent {
-                translation_cylinder_coordinates: CylinderCoordinates3d {
-                    distance: 15.0,
-                    rotation: 0.0,
-                    height: 5.0,
+            camera_current_state: PlayerCameraCurrentStateComponent {
+                camera_state: PlayerCameraState {
+                    translation_cylinder_coordinates: CylinderCoordinates3d {
+                        distance: 15.0,
+                        rotation: 0.0,
+                        height: 5.0,
+                    },
+                    focus: Vec3::new(0.0, 4.0, 0.0),
+                    roll: 0.0,
                 },
-                focus: Vec3::new(0.0, 4.0, 0.0),
-                roll: 0.0,
+            },
+            camera_desired_state: PlayerCameraDesiredStateComponent {
+                camera_state: PlayerCameraState {
+                    translation_cylinder_coordinates: CylinderCoordinates3d {
+                        distance: 15.0,
+                        rotation: 0.0,
+                        height: 5.0,
+                    },
+                    focus: Vec3::new(0.0, 4.0, 0.0),
+                    roll: 0.0,
+                },
+            },
+            camera_transition_variables: PlayerCameraTransitionStateVariablesComponent {
+                transition_cylinder_coordinates:
+                    CylinderCoordinates3dSmoothDampTransitionVariables {
+                        distance: SmoothDampTransitionVariables { velocity: 0.0 },
+                        rotation: SmoothDampTransitionVariables { velocity: 0.0 },
+                        height: SmoothDampTransitionVariables { velocity: 0.0 },
+                    },
+                focus: SmoothDampTransitionVariables {
+                    velocity: Vec3::ZERO,
+                },
+                roll: SmoothDampTransitionVariables { velocity: 0.0 },
             },
         },
         Camera3dBundle {
@@ -456,18 +333,32 @@ fn main() {
         .add_systems(Startup, spawn_character_system)
         .add_systems(Startup, spawn_player_system)
         .add_systems(Startup, spawn_props_system)
-        .add_systems(FixedUpdate, update_player_roll_using_input_system)
         .add_systems(
             FixedUpdate,
-            update_player_local_character_camera_parameters_using_input_system,
+            update_player_camera_state_roll_using_input_system,
+        )
+        .add_systems(
+            FixedUpdate,
+            update_player_camera_desired_state_coordinates_using_input_system,
         )
         .add_systems(
             FixedUpdate,
             update_character_rotation_from_player_to_character_system,
         )
+        .add_systems(Update, transition_player_camera_state_distance_system)
+        .add_systems(Update, transition_player_camera_state_height_system)
+        .add_systems(
+            Update,
+            transition_player_camera_current_state_rotation_system,
+        )
+        .add_systems(Update, transition_player_camera_state_roll_system)
+        .add_systems(Update, transition_player_camera_state_focus_system)
         .add_systems(FixedUpdate, update_character_movement_player_input_system)
-        .add_systems(FixedUpdate, update_player_translation_system)
-        .add_systems(Update, mouse_player_roll_on_mouse_button_input)
+        .add_systems(
+            FixedUpdate,
+            update_player_camera_transform_using_state_system,
+        )
+        .add_systems(Update, reset_player_roll_on_mouse_input_system)
         .add_systems(
             Update,
             draw_character_rotation_from_global_to_character_gizmos_system,
