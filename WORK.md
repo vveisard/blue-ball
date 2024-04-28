@@ -1,40 +1,3 @@
-# STORY As a user, I want camera coordinates to transition over time
-
-## TODO gizmo
-
-- draw the desired transform
-
-## ACCEPTANCE
-
-I can see the desired camera coordinate gizmo
-
-## DESIGN
-
-I should store the desired component state in a "transition component" and animate in the "camera_coordinate_transition_system"
-
-// data for spring parameters
-SpringParametersData
-
-// parameters for camera transition
-CameraSpringTransitionParametersComponent
-desired_coordinates: CylinderCoordinate3dData
-spring_parameters: SpringParametersData
-
-// variables for spring transition
-CameraSpringTransitionVariablesComponent
-// TODO add all the spring parameter values
-
-transition_camera_coordinates_system
-
----
-
-# ACTION
-
-show off the current build
-Publish on Twitch under my personal account
-
----
-
 ## STORY physics body
 
 implement floating ball model as described in DESIGN below
@@ -107,6 +70,11 @@ I should use an OBJ file
 - I can move freely around an isosphere model
 
 ---
+
+# ACTION
+
+show off the current build
+Publish on Twitch under my personal account
 
 ---
 
