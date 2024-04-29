@@ -4,14 +4,6 @@
 
 Might be fun to import Green Hill zone from Sonic Adventure 2?
 
-# STORY otto movement
-
-I want to validate I do not leave the mesh collider, then stop on the edge.
-
-## DESIGN
-
-I should use an OBJ file
-
 ## ACCEPTANCE
 
 - I can move freely move around the stage mesh
