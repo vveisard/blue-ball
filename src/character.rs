@@ -39,11 +39,6 @@ pub struct CharacterPlayerInputComponent {
     pub global_input: Vec3,
 }
 
-#[derive(Component)]
-pub struct CharacterVelocityComponent {
-    pub global_velocity: Vec3,
-}
-
 #[derive(Bundle)]
 pub struct CharacterBundle {
     pub tag: CharacterTagComponent,
@@ -53,31 +48,22 @@ pub struct CharacterBundle {
     pub rotation_from_player_to_character:
         CharacterRotationFromGlobalToCharacterParametersComponent,
     pub player_input: CharacterPlayerInputComponent,
-    pub velocity: CharacterVelocityComponent,
 }
 
 pub fn update_character_velocity_using_input_system(
     mut character_query: Query<
-        (
-            &CharacterPlayerInputComponent,
-            &mut CharacterVelocityComponent,
-            &mut Velocity,
-        ),
+        (&CharacterPlayerInputComponent, &mut Velocity),
         With<CharacterTagComponent>,
     >,
 ) {
     let mut character = character_query.single_mut();
 
-    character.1.global_velocity = character.0.global_input * 8.0;
-    character.2.linvel = character.0.global_input * 8.0;
+    character.1.linvel = character.0.global_input * 8.0;
 }
 
 pub fn update_character_rigidbody_position_system(
     rapier_context: Res<RapierContext>,
-    mut character_query: Query<
-        (&CharacterVelocityComponent, &Children, &mut Transform),
-        With<CharacterTagComponent>,
-    >,
+    mut character_query: Query<(&Children, &mut Transform), With<CharacterTagComponent>>,
     character_body_query: Query<
         (&Transform, &GlobalTransform, &Collider),
         (
@@ -105,12 +91,12 @@ pub fn update_character_rigidbody_position_system(
         // TOOD validate angle difference is not too steep
 
         // snap to ground
-        let rotation = Quat::from_rotation_arc(*character.2.up(), ray_intersection.normal);
-        character.2.rotation *= rotation;
-        character.2.translation = ray_intersection.point;
+        let rotation = Quat::from_rotation_arc(*character.1.up(), ray_intersection.normal);
+        character.1.rotation *= rotation;
+        character.1.translation = ray_intersection.point;
     } else {
         // become airborne
         // TODO instead, orient to inverse of "gravity"
-        character.2.rotation = Quat::IDENTITY;
+        character.1.rotation = Quat::IDENTITY;
     }
 }

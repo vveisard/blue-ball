@@ -36,7 +36,6 @@ use character::{
     update_character_rigidbody_position_system, update_character_velocity_using_input_system,
     CharacterBodyTagComponent, CharacterBundle, CharacterPlayerInputComponent,
     CharacterRotationFromGlobalToCharacterParametersComponent, CharacterTagComponent,
-    CharacterVelocityComponent,
 };
 use math::{
     CylinderCoordinates3d, CylinderCoordinates3dSmoothDampTransitionVariables,
@@ -301,9 +300,6 @@ fn spawn_character_system(
                     },
                 player_input: CharacterPlayerInputComponent {
                     global_input: Vec3::ZERO,
-                },
-                velocity: CharacterVelocityComponent {
-                    global_velocity: Vec3::ZERO,
                 },
             },
             (
