@@ -1,34 +1,3 @@
-# STORY cuboid movement
-
-## TODO fix colliding
-
-somehow I'm getting stuck inside boxes despite checking. System ordering problem>?
-
-## TODO fix global input direction
-
-somehow this has a vertical (Y) component
-
-## DESIGN
-
-Using physics engine (bevy plugin?)
-
-- rigidbody should be entirely kinematic
-- should "validate" movement before translation is applied
-- my "stage collider" does not enter any other "stage colliders"
-
-## IMPLEMENTATION
-
-Do a shapecast of my stage collider using movement, then translate to the final position
-
-## ACCEPTANCE
-
-I will know this is complete when:
-
-- I can use input to move along a sphere collider using Rapier
-- I cannot enter boxes
-
----
-
 # STORY mesh movement
 
 ## TODO add a physics mesh
@@ -45,8 +14,7 @@ I should use an OBJ file
 
 ## ACCEPTANCE
 
-- I can move freely in a "isosphere" model
-- I can move freely around an isosphere model
+- I can move freely move around the stage mesh
 
 ---
 
@@ -78,13 +46,7 @@ Show off
 
 ---
 
-# STORY as a user, I want to parameterize smooth_time using transition parameters
-
-`PlayerCameraTransitionCameraStateParemters`
-
----
-
-# STORY mesh movement, prevent leaving mesh
+# STORY mesh movement, prevent leaving ledge
 
 ## ACCEPTANCE
 
@@ -98,4 +60,21 @@ I will know this is working when:
 
 ## IMPLEMENTATION
 
-- I should consider collision test to solve my "edge" problem: project point with the final position of the character's translation, in order to find the point which was left
+- I should consider collision test to solve my "edge" problem: project point with the final position of the character's translation, in order to find the point which was left?
+  This may require "edge detection"
+
+---
+
+# FIX fix global input direction
+
+## DESIGN
+
+somehow the input has a vertical (Y) component. Should I perform a projection step? I shouldn't _have to_...
+
+---
+
+# STORY as a user, I want to parameterize smooth_time using transition parameters
+
+`PlayerCameraTransitionCameraStateParemters`
+
+---
