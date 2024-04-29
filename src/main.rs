@@ -4,7 +4,7 @@ use bevy::{
     core_pipeline::core_3d::Camera3dBundle,
     ecs::{
         query::With,
-        schedule::{IntoSystemConfigs, IntoSystemSetConfigs},
+        schedule::IntoSystemConfigs,
         system::{Commands, Query, Res, ResMut},
     },
     gizmos::gizmos::Gizmos,
@@ -27,17 +27,16 @@ use bevy::{
     DefaultPlugins,
 };
 use bevy_rapier3d::{
-    dynamics::{Ccd, GravityScale, LockedAxes, RigidBody, Sleeping, Velocity},
-    geometry::{Collider, CollisionGroups, Group},
-    plugin::{NoUserData, PhysicsSet, RapierPhysicsPlugin},
+    dynamics::{Ccd, Damping, GravityScale, LockedAxes, RigidBody, Sleeping, Velocity},
+    geometry::{Collider, CollisionGroups, Friction, Group},
+    plugin::{NoUserData, RapierPhysicsPlugin},
     render::RapierDebugRenderPlugin,
 };
 use character::{
-    update_character_rigidbody_position_system,
-    update_character_rigidbody_position_using_input_system,
-    update_character_velocity_using_input_system, CharacterBodyTagComponent, CharacterBundle,
-    CharacterPlayerInputComponent, CharacterRotationFromGlobalToCharacterParametersComponent,
-    CharacterTagComponent, CharacterVelocityComponent,
+    update_character_rigidbody_position_system, update_character_velocity_using_input_system,
+    CharacterBodyTagComponent, CharacterBundle, CharacterPlayerInputComponent,
+    CharacterRotationFromGlobalToCharacterParametersComponent, CharacterTagComponent,
+    CharacterVelocityComponent,
 };
 use math::{
     CylinderCoordinates3d, CylinderCoordinates3dSmoothDampTransitionVariables,
@@ -292,15 +291,20 @@ fn spawn_character_system(
                 },
             },
             (
-                RigidBody::KinematicPositionBased,
-                Velocity {
-                    linvel: Vec3::ZERO,
-                    angvel: Vec3::ZERO,
-                },
+                RigidBody::Dynamic,
+                Velocity::zero(),
                 GravityScale(0.0),
                 Sleeping::disabled(),
                 Ccd::enabled(),
                 LockedAxes::ROTATION_LOCKED,
+                Friction {
+                    coefficient: 0.0,
+                    ..default()
+                },
+                Damping {
+                    linear_damping: 0.0,
+                    angular_damping: 0.0,
+                },
             ),
         ))
         .with_children(|parent| {
@@ -384,34 +388,9 @@ fn main() {
 
     app.add_plugins(DefaultPlugins);
     app.add_plugins((
-        RapierPhysicsPlugin::<NoUserData>::default().with_default_system_setup(false),
+        RapierPhysicsPlugin::<NoUserData>::default(),
         RapierDebugRenderPlugin::default(),
     ));
-
-    app.configure_sets(
-        FixedPostUpdate,
-        (
-            PhysicsSet::SyncBackend,
-            PhysicsSet::StepSimulation,
-            PhysicsSet::Writeback,
-        )
-            .chain()
-            .before(TransformSystem::TransformPropagate),
-    );
-
-    app.add_systems(
-        FixedPostUpdate,
-        (
-            RapierPhysicsPlugin::<NoUserData>::get_systems(PhysicsSet::SyncBackend)
-                .in_set(PhysicsSet::SyncBackend),
-            (RapierPhysicsPlugin::<NoUserData>::get_systems(
-                PhysicsSet::StepSimulation,
-            ),)
-                .in_set(PhysicsSet::StepSimulation),
-            RapierPhysicsPlugin::<NoUserData>::get_systems(PhysicsSet::Writeback)
-                .in_set(PhysicsSet::Writeback),
-        ),
-    );
 
     app.add_systems(Startup, spawn_character_system)
         .add_systems(Startup, spawn_player_system)
@@ -436,26 +415,19 @@ fn main() {
         )
         .add_systems(Update, transition_player_camera_state_roll_system)
         .add_systems(Update, transition_player_camera_state_focus_system)
-        .add_systems(FixedUpdate, update_character_movement_player_input_system)
-        .add_systems(
-            FixedUpdate,
-            update_player_camera_transform_using_state_system,
-        )
-        .add_systems(FixedUpdate, update_character_velocity_using_input_system)
-        .add_systems(
-            FixedUpdate,
-            update_character_rigidbody_position_using_input_system,
-        )
         .add_systems(Update, reset_player_roll_on_mouse_input_system)
-        .add_systems(
-            Update,
-            draw_character_rotation_from_global_to_character_gizmos_system,
-        )
-        .add_systems(Update, draw_character_transform_gizmos_system)
-        .add_systems(Update, draw_character_input_gizmos_system)
+        .add_systems(FixedUpdate, update_character_movement_player_input_system)
+        .add_systems(Update, update_player_camera_transform_using_state_system)
+        .add_systems(FixedUpdate, update_character_velocity_using_input_system)
         .add_systems(
             FixedPostUpdate,
             update_character_rigidbody_position_system.after(TransformSystem::TransformPropagate),
         )
+        .add_systems(
+            PostUpdate,
+            draw_character_rotation_from_global_to_character_gizmos_system,
+        )
+        .add_systems(PostUpdate, draw_character_transform_gizmos_system)
+        .add_systems(PostUpdate, draw_character_input_gizmos_system)
         .run();
 }

@@ -11,9 +11,11 @@ use bevy::{
     transform::components::{GlobalTransform, Transform},
 };
 use bevy_rapier3d::{
+    dynamics::Velocity,
     geometry::{Collider, CollisionGroups, Group},
     pipeline::QueryFilter,
     plugin::RapierContext,
+    rapier::dynamics::RigidBody,
 };
 
 #[derive(Component)]
@@ -59,67 +61,16 @@ pub fn update_character_velocity_using_input_system(
     mut character_query: Query<
         (
             &CharacterPlayerInputComponent,
-            &CharacterRotationFromGlobalToCharacterParametersComponent,
             &mut CharacterVelocityComponent,
+            &mut Velocity,
         ),
         With<CharacterTagComponent>,
     >,
 ) {
     let mut character = character_query.single_mut();
 
-    character.2.global_velocity = character.0.global_input * 0.1;
-}
-
-pub fn update_character_rigidbody_position_using_input_system(
-    rapier_context: Res<RapierContext>,
-    mut character_query: Query<
-        (&CharacterVelocityComponent, &Children, &mut Transform),
-        With<CharacterTagComponent>,
-    >,
-    character_body_query: Query<
-        (&Transform, &GlobalTransform, &Collider),
-        (
-            With<CharacterBodyTagComponent>,
-            Without<CharacterTagComponent>,
-        ),
-    >,
-) {
-    let mut character = character_query.single_mut();
-    let character_body = character_body_query.single();
-
-    let speed = character.0.global_velocity.length();
-
-    if speed <= 0.0 {
-        return;
-    }
-
-    let character_body_position = character_body.1.translation();
-
-    if let Some((entity, hit)) = rapier_context.cast_shape(
-        character_body_position,
-        Quat::IDENTITY,
-        character.0.global_velocity,
-        character_body.2,
-        speed,
-        false,
-        QueryFilter::new().groups(CollisionGroups::new(
-            Group::from_bits(0b0100).unwrap(),
-            Group::from_bits(0b0010).unwrap(),
-        )),
-    ) {
-        // The first collider hit has the entity `entity`. The `hit` is a
-        // structure containing details about the hit configuration.
-        println!(
-            "CAN'T PROCEED. Hit the entity {:?} with the configuration: {:?}",
-            entity, hit
-        );
-
-        // TODO slide:
-        // - consume velocity towards hit direction
-        // - translate using remaining velocity
-    } else {
-        character.2.translation += character.0.global_velocity;
-    }
+    character.1.global_velocity = character.0.global_input * 8.0;
+    character.2.linvel = character.0.global_input * 8.0;
 }
 
 pub fn update_character_rigidbody_position_system(
