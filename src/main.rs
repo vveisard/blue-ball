@@ -224,6 +224,22 @@ fn spawn_props_system(
         ),
     ));
 
+    // stage, floor
+    commands.spawn((
+        PbrBundle {
+            mesh: meshes.add(Cuboid::new(5.0, 5.0, 5.0)),
+            material: materials.add(Color::WHITE),
+            transform: Transform::from_xyz(0.0, 0.0, 0.0)
+                .with_rotation(Quat::from_rotation_x(-PI / 4.)),
+            ..default()
+        },
+        Collider::cuboid(2.5, 2.5, 2.5),
+        CollisionGroups::new(
+            Group::from_bits(0b0010).unwrap(),
+            Group::from_bits(0b0100).unwrap(),
+        ),
+    ));
+
     // stage, obstacle
     commands.spawn((
         PbrBundle {

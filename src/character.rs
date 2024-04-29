@@ -15,7 +15,6 @@ use bevy_rapier3d::{
     geometry::{Collider, CollisionGroups, Group},
     pipeline::QueryFilter,
     plugin::RapierContext,
-    rapier::dynamics::RigidBody,
 };
 
 #[derive(Component)]
@@ -90,22 +89,28 @@ pub fn update_character_rigidbody_position_system(
     let mut character = character_query.single_mut();
     let character_body: (&Transform, &GlobalTransform, &Collider) = character_body_query.single();
     let character_body_position = character_body.1.translation();
-    let character_body_down = character_body.1.down();
-    let character_speed = 1.0 + 0.1; // height + skin
+    let character_snap_direction = character_body.1.down();
+    let character_snap_distance = 1.0 + 0.5; // leg length + offset
 
     if let Some((_, ray_intersection)) = rapier_context.cast_ray_and_get_normal(
         character_body_position,
-        character_body_down,
-        character_speed,
+        character_snap_direction,
+        character_snap_distance,
         true,
         QueryFilter::new().groups(CollisionGroups::new(
             Group::from_bits(0b0100).unwrap(),
             Group::from_bits(0b0010).unwrap(),
         )),
     ) {
+        // TOOD validate angle difference is not too steep
+
+        // snap to ground
+        let rotation = Quat::from_rotation_arc(*character.2.up(), ray_intersection.normal);
+        character.2.rotation *= rotation;
         character.2.translation = ray_intersection.point;
-        // TODO update rotation
     } else {
-        // here, become airborne
+        // become airborne
+        // TODO instead, orient to inverse of "gravity"
+        character.2.rotation = Quat::IDENTITY;
     }
 }
