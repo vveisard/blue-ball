@@ -42,7 +42,7 @@ use math::{
     SmoothDampTransitionVariables,
 };
 use player::{
-    reset_player_roll_on_mouse_input_system,
+    draw_player_camera_focus_gizmos_system, reset_player_roll_on_mouse_input_system,
     transition_player_camera_current_state_rotation_system,
     transition_player_camera_state_distance_system, transition_player_camera_state_focus_system,
     transition_player_camera_state_height_system, transition_player_camera_state_roll_system,
@@ -352,7 +352,7 @@ fn spawn_player_system(mut commands: Commands) {
             tag: PlayerTagComponent,
             camera_current_state: PlayerCameraCurrentStateComponent {
                 camera_state: PlayerCameraState {
-                    translation_cylinder_coordinates: CylinderCoordinates3d {
+                    local_cylinder_coordinates: CylinderCoordinates3d {
                         distance: 15.0,
                         rotation: 0.0,
                         height: 5.0,
@@ -363,7 +363,7 @@ fn spawn_player_system(mut commands: Commands) {
             },
             camera_desired_state: PlayerCameraDesiredStateComponent {
                 camera_state: PlayerCameraState {
-                    translation_cylinder_coordinates: CylinderCoordinates3d {
+                    local_cylinder_coordinates: CylinderCoordinates3d {
                         distance: 15.0,
                         rotation: 0.0,
                         height: 5.0,
@@ -441,5 +441,6 @@ fn main() {
         )
         .add_systems(PostUpdate, draw_character_transform_gizmos_system)
         .add_systems(PostUpdate, draw_character_input_gizmos_system)
+        .add_systems(PostUpdate, draw_player_camera_focus_gizmos_system)
         .run();
 }

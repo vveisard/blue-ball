@@ -76,7 +76,7 @@ pub fn update_character_rigidbody_position_system(
     let character_body: (&Transform, &GlobalTransform, &Collider) = character_body_query.single();
     let character_body_position = character_body.1.translation();
     let character_snap_direction = character_body.1.down();
-    let character_snap_distance = 1.0 + 0.5; // leg length + offset
+    let character_snap_distance = 1.0 + 0.16; // leg length + offset
 
     if let Some((_, ray_intersection)) = rapier_context.cast_ray_and_get_normal(
         character_body_position,

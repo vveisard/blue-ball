@@ -1,3 +1,14 @@
+# STORY render camera height and rotation gizmos
+
+## DESIGN
+
+this is:
+
+- a line from the center of the cylinder to the camera
+- a line from the bottom of the cylinder to the camera
+
+---
+
 # STORY vertical movement
 
 ## ACCEPTANCE

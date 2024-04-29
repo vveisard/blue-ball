@@ -1,6 +1,11 @@
-use crate::math::{
-    CylinderCoordinates3d, CylinderCoordinates3dSmoothDampTransitionVariables,
-    SmoothDampTransitionVariables,
+use crate::{
+    character::{
+        CharacterPlayerInputComponent, CharacterRotationFromGlobalToCharacterParametersComponent,
+    },
+    math::{
+        CylinderCoordinates3d, CylinderCoordinates3dSmoothDampTransitionVariables,
+        SmoothDampTransitionVariables,
+    },
 };
 use bevy::{
     ecs::{
@@ -10,11 +15,13 @@ use bevy::{
         query::{With, Without},
         system::{Query, Res},
     },
+    gizmos::gizmos::Gizmos,
     input::{
         mouse::{MouseButton, MouseMotion, MouseWheel},
         ButtonInput,
     },
-    math::{Vec2, Vec3},
+    math::{Quat, Vec2, Vec3},
+    render::color::Color,
     time::Time,
     transform::components::Transform,
 };
@@ -39,7 +46,7 @@ pub struct PlayerCameraTransitionStateVariablesComponent {
 
 pub struct PlayerCameraState {
     /// translation with respect to the character
-    pub translation_cylinder_coordinates: CylinderCoordinates3d,
+    pub local_cylinder_coordinates: CylinderCoordinates3d,
     // point to lookat
     pub focus: Vec3,
 
@@ -102,23 +109,11 @@ pub fn update_player_camera_desired_state_coordinates_using_input_system(
         zoom_input += mouse_event.y * 0.1;
     }
 
-    player
-        .1
-        .camera_state
-        .translation_cylinder_coordinates
-        .distance -= zoom_input;
+    player.1.camera_state.local_cylinder_coordinates.distance -= zoom_input;
 
-    player
-        .1
-        .camera_state
-        .translation_cylinder_coordinates
-        .rotation += input.x;
+    player.1.camera_state.local_cylinder_coordinates.rotation += input.x;
     player.1.camera_state.focus.y -= input.y;
-    player
-        .1
-        .camera_state
-        .translation_cylinder_coordinates
-        .height -= input.y * 0.5;
+    player.1.camera_state.local_cylinder_coordinates.height -= input.y * 0.5;
 }
 
 pub fn transition_player_camera_current_state_rotation_system(
@@ -141,11 +136,11 @@ pub fn transition_player_camera_current_state_rotation_system(
         let smooth_damp_result = f32::smooth_damp(
             player_camera_current_state
                 .camera_state
-                .translation_cylinder_coordinates
+                .local_cylinder_coordinates
                 .rotation,
             player_camera_desired_state
                 .camera_state
-                .translation_cylinder_coordinates
+                .local_cylinder_coordinates
                 .rotation,
             player_camera_transition_state_variables
                 .transition_cylinder_coordinates
@@ -158,7 +153,7 @@ pub fn transition_player_camera_current_state_rotation_system(
 
         player_camera_current_state
             .camera_state
-            .translation_cylinder_coordinates
+            .local_cylinder_coordinates
             .rotation = smooth_damp_result.0;
 
         player_camera_transition_state_variables
@@ -188,11 +183,11 @@ pub fn transition_player_camera_state_height_system(
         let smooth_damp_result = f32::smooth_damp(
             player_camera_current_state
                 .camera_state
-                .translation_cylinder_coordinates
+                .local_cylinder_coordinates
                 .height,
             player_camera_desired_state
                 .camera_state
-                .translation_cylinder_coordinates
+                .local_cylinder_coordinates
                 .height,
             player_camera_transition_state_variables
                 .transition_cylinder_coordinates
@@ -205,7 +200,7 @@ pub fn transition_player_camera_state_height_system(
 
         player_camera_current_state
             .camera_state
-            .translation_cylinder_coordinates
+            .local_cylinder_coordinates
             .height = smooth_damp_result.0;
 
         player_camera_transition_state_variables
@@ -235,11 +230,11 @@ pub fn transition_player_camera_state_distance_system(
         let smooth_damp_result = f32::smooth_damp(
             player_camera_current_state
                 .camera_state
-                .translation_cylinder_coordinates
+                .local_cylinder_coordinates
                 .distance,
             player_camera_desired_state
                 .camera_state
-                .translation_cylinder_coordinates
+                .local_cylinder_coordinates
                 .distance,
             player_camera_transition_state_variables
                 .transition_cylinder_coordinates
@@ -252,7 +247,7 @@ pub fn transition_player_camera_state_distance_system(
 
         player_camera_current_state
             .camera_state
-            .translation_cylinder_coordinates
+            .local_cylinder_coordinates
             .distance = smooth_damp_result.0;
 
         player_camera_transition_state_variables
@@ -339,35 +334,11 @@ pub fn update_player_camera_transform_using_state_system(
     let character = character_query.single_mut();
     let mut player = player_query.single_mut();
 
-    let relative_x_translation = player
-        .1
-        .camera_state
-        .translation_cylinder_coordinates
-        .distance
-        * f32::cos(
-            player
-                .1
-                .camera_state
-                .translation_cylinder_coordinates
-                .rotation,
-        );
-    let relative_z_translation = player
-        .1
-        .camera_state
-        .translation_cylinder_coordinates
-        .distance
-        * f32::sin(
-            player
-                .1
-                .camera_state
-                .translation_cylinder_coordinates
-                .rotation,
-        );
-    let relative_y_translation = player
-        .1
-        .camera_state
-        .translation_cylinder_coordinates
-        .height;
+    let relative_x_translation = player.1.camera_state.local_cylinder_coordinates.distance
+        * f32::cos(player.1.camera_state.local_cylinder_coordinates.rotation);
+    let relative_z_translation = player.1.camera_state.local_cylinder_coordinates.distance
+        * f32::sin(player.1.camera_state.local_cylinder_coordinates.rotation);
+    let relative_y_translation = player.1.camera_state.local_cylinder_coordinates.height;
 
     player.0.translation = character.0.translation
         + Vec3::new(
@@ -393,4 +364,40 @@ pub fn reset_player_roll_on_mouse_input_system(
     }
 
     player_query.single_mut().0.camera_state.roll = 0.0;
+}
+
+pub fn draw_player_camera_focus_gizmos_system(
+    mut gizmos: Gizmos,
+    player_query: Query<
+        (
+            &PlayerCameraCurrentStateComponent,
+            &PlayerCameraDesiredStateComponent,
+        ),
+        With<PlayerTagComponent>,
+    >,
+    character_query: Query<
+        (
+            &Transform,
+            &CharacterPlayerInputComponent,
+            &CharacterRotationFromGlobalToCharacterParametersComponent,
+        ),
+        With<CharacterTagComponent>,
+    >,
+) {
+    let character = character_query.single();
+    let player = player_query.single();
+
+    gizmos.sphere(
+        character.0.translation + player.0.camera_state.focus,
+        Quat::IDENTITY,
+        0.5,
+        Color::WHITE,
+    );
+
+    gizmos.sphere(
+        character.0.translation + player.1.camera_state.focus,
+        Quat::IDENTITY,
+        0.5,
+        Color::YELLOW,
+    );
 }
