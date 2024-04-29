@@ -1,33 +1,12 @@
-## STORY physics body
-
-implement floating ball model as described in DESIGN below
-
-### ACCEPTANCE
-
-I can see Sonic's up direction in a Gizmo
-I can see Sonic's down direction in a Gizmo
-I can see Sonic's forward direction (speed) in a Gizmo
-I can see Sonic's down raycast in a Gizmo
-I can see Sonic's body (floating sphere) in a Gizmo
-I can see Sonic's center (floating dot) in a Gizmo
-
-### DESIGN
-
-Sonic is a "floating ball". the center of this ball is a "point", which is the location of his body
-he uses raycasting to hover above the stage
-this is like Bud from Grow Up
-
-Sonic has a stage collider.
-The stage collider is very small!
-
-Sonic's movement is entirely kinematic, except his stage collider.
-
-sonic has an "up" direction and a "down" direction
-sonic's "up" direction is the normal of the mesh he is on, and the up is the opposite direction.
-when on a mesh, sonic snaps to the mesh below his down direction (this means it must be less than 90 degrees)
-when sonic leaves a mesh, his up and down directions get reset.
-
 # STORY cuboid movement
+
+## TODO fix colliding
+
+somehow I'm getting stuck inside boxes despite checking. System ordering problem>?
+
+## TODO fix global input direction
+
+somehow this has a vertical (Y) component
 
 ## DESIGN
 

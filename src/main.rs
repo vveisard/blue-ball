@@ -10,7 +10,7 @@ use bevy::{
     hierarchy::BuildChildren,
     input::{keyboard::KeyCode, ButtonInput},
     math::{
-        primitives::{Capsule3d, Circle, Cuboid},
+        primitives::{Capsule3d, Cuboid},
         Quat, Vec3,
     },
     pbr::{
@@ -18,13 +18,24 @@ use bevy::{
         DirectionalLightBundle, PbrBundle, StandardMaterial,
     },
     render::{color::Color, mesh::Mesh, view::InheritedVisibility},
-    transform::components::{GlobalTransform, Transform},
+    transform::{
+        components::{GlobalTransform, Transform},
+        TransformBundle,
+    },
     utils::default,
     DefaultPlugins,
 };
+use bevy_rapier3d::{
+    dynamics::{Ccd, GravityScale, LockedAxes, RigidBody, Sleeping, Velocity},
+    geometry::{Collider, CollisionGroups, Group},
+    plugin::{NoUserData, RapierPhysicsPlugin},
+    render::RapierDebugRenderPlugin,
+};
 use character::{
-    CharacterBundle, CharacterPlayerInputComponent,
-    CharacterRotationFromGlobalToCharacterParametersComponent, CharacterTagComponent,
+    update_character_rigidbody_position_using_input_system,
+    update_character_velocity_using_input_system, CharacterBodyTagComponent, CharacterBundle,
+    CharacterPlayerInputComponent, CharacterRotationFromGlobalToCharacterParametersComponent,
+    CharacterTagComponent, CharacterVelocityComponent,
 };
 use math::{
     CylinderCoordinates3d, CylinderCoordinates3dSmoothDampTransitionVariables,
@@ -197,24 +208,35 @@ fn spawn_props_system(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    // circular base
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Circle::new(4.0)),
-        material: materials.add(StandardMaterial {
-            base_color: Color::WHITE,
-            cull_mode: None,
+    // stage, floor
+    commands.spawn((
+        PbrBundle {
+            mesh: meshes.add(Cuboid::new(25.0, 1.0, 25.0)),
+            material: materials.add(Color::WHITE),
+            transform: Transform::from_xyz(0.0, -0.5, 0.0),
             ..default()
-        }),
-        transform: Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
-        ..default()
-    });
-    // cube
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Cuboid::new(1.0, 1.0, 1.0)),
-        material: materials.add(Color::WHITE),
-        transform: Transform::from_xyz(5.0, 0.5, 5.0),
-        ..default()
-    });
+        },
+        Collider::cuboid(12.5, 0.5, 12.5),
+        CollisionGroups::new(
+            Group::from_bits(0b0010).unwrap(),
+            Group::from_bits(0b0100).unwrap(),
+        ),
+    ));
+
+    // stage, obstacle
+    commands.spawn((
+        PbrBundle {
+            mesh: meshes.add(Cuboid::new(1.0, 1.0, 1.0)),
+            material: materials.add(Color::WHITE),
+            transform: Transform::from_xyz(5.0, 0.5, 5.0),
+            ..default()
+        },
+        Collider::cuboid(0.5, 0.5, 0.5),
+        CollisionGroups::new(
+            Group::from_bits(0b0010).unwrap(),
+            Group::from_bits(0b0100).unwrap(),
+        ),
+    ));
 
     // ambient light
     commands.insert_resource(AmbientLight {
@@ -250,23 +272,39 @@ fn spawn_character_system(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     commands
-        .spawn((CharacterBundle {
-            tag: CharacterTagComponent,
-            global_transform: GlobalTransform::default(),
-            transform: Transform::from_xyz(0.0, 0.0, 0.0),
-            inherited_visibility: InheritedVisibility::default(),
-            rotation_from_player_to_character:
-                CharacterRotationFromGlobalToCharacterParametersComponent {
-                    rotation_from_global_to_character_quat: Quat::IDENTITY,
+        .spawn((
+            CharacterBundle {
+                tag: CharacterTagComponent,
+                global_transform: GlobalTransform::default(),
+                transform: Transform::from_xyz(0.0, 0.0, 0.0),
+                inherited_visibility: InheritedVisibility::default(),
+                rotation_from_player_to_character:
+                    CharacterRotationFromGlobalToCharacterParametersComponent {
+                        rotation_from_global_to_character_quat: Quat::IDENTITY,
+                    },
+                player_input: CharacterPlayerInputComponent {
+                    global_input: Vec3::ZERO,
                 },
-            player_input: CharacterPlayerInputComponent {
-                global_input: Vec3::ZERO,
+                velocity: CharacterVelocityComponent {
+                    global_velocity: Vec3::ZERO,
+                },
             },
-        },))
+            (
+                RigidBody::KinematicPositionBased,
+                Velocity {
+                    linvel: Vec3::ZERO,
+                    angvel: Vec3::ZERO,
+                },
+                GravityScale(0.0),
+                Sleeping::disabled(),
+                Ccd::enabled(),
+                LockedAxes::ROTATION_LOCKED,
+            ),
+        ))
         .with_children(|parent| {
             parent.spawn(PbrBundle {
                 transform: Transform::from_xyz(0.0, 1.0, 0.0),
-                mesh: meshes.add(Capsule3d::new(0.5, 1.)),
+                mesh: meshes.add(Capsule3d::new(0.5, 1.)), // TOOD use height
                 material: materials.add(StandardMaterial {
                     base_color: Color::rgba(0.0, 0.0, 1.0, 0.5),
                     alpha_mode: AlphaMode::Blend,
@@ -274,6 +312,18 @@ fn spawn_character_system(
                 }),
                 ..default()
             });
+            parent.spawn((
+                CharacterBodyTagComponent,
+                TransformBundle {
+                    local: Transform::from_xyz(0.0, 1.0, 0.0), // TOOD use height
+                    ..default()
+                },
+                Collider::ball(0.5),
+                CollisionGroups::new(
+                    Group::from_bits(0b0100).unwrap(),
+                    Group::from_bits(0b0110).unwrap(),
+                ),
+            ));
         });
 }
 
@@ -330,6 +380,8 @@ fn spawn_player_system(mut commands: Commands) {
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        .add_plugins(RapierPhysicsPlugin::<NoUserData>::default())
+        .add_plugins(RapierDebugRenderPlugin::default())
         .add_systems(Startup, spawn_character_system)
         .add_systems(Startup, spawn_player_system)
         .add_systems(Startup, spawn_props_system)
@@ -357,6 +409,11 @@ fn main() {
         .add_systems(
             FixedUpdate,
             update_player_camera_transform_using_state_system,
+        )
+        .add_systems(FixedUpdate, update_character_velocity_using_input_system)
+        .add_systems(
+            FixedUpdate,
+            update_character_rigidbody_position_using_input_system,
         )
         .add_systems(Update, reset_player_roll_on_mouse_input_system)
         .add_systems(
