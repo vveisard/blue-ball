@@ -93,8 +93,10 @@ pub fn update_character_rigidbody_position_using_input_system(
         return;
     }
 
+    let character_body_position = character_body.1.translation();
+
     if let Some((entity, hit)) = rapier_context.cast_shape(
-        character_body.1.translation(),
+        character_body_position,
         Quat::IDENTITY,
         character.0.global_velocity,
         character_body.2,
@@ -108,7 +110,7 @@ pub fn update_character_rigidbody_position_using_input_system(
         // The first collider hit has the entity `entity`. The `hit` is a
         // structure containing details about the hit configuration.
         println!(
-            "Hit the entity {:?} with the configuration: {:?}",
+            "CAN'T PROCEED. Hit the entity {:?} with the configuration: {:?}",
             entity, hit
         );
 
@@ -118,6 +120,41 @@ pub fn update_character_rigidbody_position_using_input_system(
     } else {
         character.2.translation += character.0.global_velocity;
     }
+}
 
-    // TODO update rigidbody orientation after movement using raycast down
+pub fn update_character_rigidbody_position_system(
+    rapier_context: Res<RapierContext>,
+    mut character_query: Query<
+        (&CharacterVelocityComponent, &Children, &mut Transform),
+        With<CharacterTagComponent>,
+    >,
+    character_body_query: Query<
+        (&Transform, &GlobalTransform, &Collider),
+        (
+            With<CharacterBodyTagComponent>,
+            Without<CharacterTagComponent>,
+        ),
+    >,
+) {
+    let mut character = character_query.single_mut();
+    let character_body: (&Transform, &GlobalTransform, &Collider) = character_body_query.single();
+    let character_body_position = character_body.1.translation();
+    let character_body_down = character_body.1.down();
+    let character_speed = 1.0 + 0.1; // height + skin
+
+    if let Some((_, ray_intersection)) = rapier_context.cast_ray_and_get_normal(
+        character_body_position,
+        character_body_down,
+        character_speed,
+        true,
+        QueryFilter::new().groups(CollisionGroups::new(
+            Group::from_bits(0b0100).unwrap(),
+            Group::from_bits(0b0010).unwrap(),
+        )),
+    ) {
+        character.2.translation = ray_intersection.point;
+        // TODO update rotation
+    } else {
+        // here, become airborne
+    }
 }

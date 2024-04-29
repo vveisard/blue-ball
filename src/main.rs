@@ -1,9 +1,10 @@
 use bevy::{
-    app::{App, FixedUpdate, Startup, Update},
+    app::{App, FixedPostUpdate, FixedUpdate, PostUpdate, Startup, Update},
     asset::Assets,
     core_pipeline::core_3d::Camera3dBundle,
     ecs::{
         query::With,
+        schedule::{IntoSystemConfigs, IntoSystemSetConfigs},
         system::{Commands, Query, Res, ResMut},
     },
     gizmos::gizmos::Gizmos,
@@ -20,7 +21,7 @@ use bevy::{
     render::{color::Color, mesh::Mesh, view::InheritedVisibility},
     transform::{
         components::{GlobalTransform, Transform},
-        TransformBundle,
+        TransformBundle, TransformSystem,
     },
     utils::default,
     DefaultPlugins,
@@ -28,10 +29,11 @@ use bevy::{
 use bevy_rapier3d::{
     dynamics::{Ccd, GravityScale, LockedAxes, RigidBody, Sleeping, Velocity},
     geometry::{Collider, CollisionGroups, Group},
-    plugin::{NoUserData, RapierPhysicsPlugin},
+    plugin::{NoUserData, PhysicsSet, RapierPhysicsPlugin},
     render::RapierDebugRenderPlugin,
 };
 use character::{
+    update_character_rigidbody_position_system,
     update_character_rigidbody_position_using_input_system,
     update_character_velocity_using_input_system, CharacterBodyTagComponent, CharacterBundle,
     CharacterPlayerInputComponent, CharacterRotationFromGlobalToCharacterParametersComponent,
@@ -378,11 +380,40 @@ fn spawn_player_system(mut commands: Commands) {
 // endregion
 
 fn main() {
-    App::new()
-        .add_plugins(DefaultPlugins)
-        .add_plugins(RapierPhysicsPlugin::<NoUserData>::default())
-        .add_plugins(RapierDebugRenderPlugin::default())
-        .add_systems(Startup, spawn_character_system)
+    let mut app = App::new();
+
+    app.add_plugins(DefaultPlugins);
+    app.add_plugins((
+        RapierPhysicsPlugin::<NoUserData>::default().with_default_system_setup(false),
+        RapierDebugRenderPlugin::default(),
+    ));
+
+    app.configure_sets(
+        FixedPostUpdate,
+        (
+            PhysicsSet::SyncBackend,
+            PhysicsSet::StepSimulation,
+            PhysicsSet::Writeback,
+        )
+            .chain()
+            .before(TransformSystem::TransformPropagate),
+    );
+
+    app.add_systems(
+        FixedPostUpdate,
+        (
+            RapierPhysicsPlugin::<NoUserData>::get_systems(PhysicsSet::SyncBackend)
+                .in_set(PhysicsSet::SyncBackend),
+            (RapierPhysicsPlugin::<NoUserData>::get_systems(
+                PhysicsSet::StepSimulation,
+            ),)
+                .in_set(PhysicsSet::StepSimulation),
+            RapierPhysicsPlugin::<NoUserData>::get_systems(PhysicsSet::Writeback)
+                .in_set(PhysicsSet::Writeback),
+        ),
+    );
+
+    app.add_systems(Startup, spawn_character_system)
         .add_systems(Startup, spawn_player_system)
         .add_systems(Startup, spawn_props_system)
         .add_systems(
@@ -422,5 +453,9 @@ fn main() {
         )
         .add_systems(Update, draw_character_transform_gizmos_system)
         .add_systems(Update, draw_character_input_gizmos_system)
+        .add_systems(
+            FixedPostUpdate,
+            update_character_rigidbody_position_system.after(TransformSystem::TransformPropagate),
+        )
         .run();
 }
