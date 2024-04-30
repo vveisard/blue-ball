@@ -33,10 +33,14 @@ use bevy_rapier3d::{
     render::RapierDebugRenderPlugin,
 };
 use character::{
-    update_character_rigidbody_position_system,
-    update_character_velocity_while_in_air_phase_system,
-    update_character_velocity_while_on_stage_system, CharacterBodyTagComponent, CharacterBundle,
-    CharacterFallPhaseMovementParametersComponent, CharacterPlayerInputComponent,
+    update_character_body_velocity_while_in_air_using_movement_velocity_system,
+    update_character_body_velocity_while_on_stage_using_movement_velocity_system,
+    update_character_in_air_body_position_system,
+    update_character_movement_velocity_while_in_air_phase_system,
+    update_character_movement_velocity_while_on_stage_system,
+    update_character_on_stage_body_position_system, update_character_on_stage_system,
+    CharacterBodyTagComponent, CharacterBundle, CharacterFallPhaseMovementParametersComponent,
+    CharacterMovementVariablesComponent, CharacterPlayerInputComponent,
     CharacterRotationFromGlobalToCharacterParametersComponent, CharacterTagComponent,
 };
 use math::{
@@ -75,13 +79,13 @@ fn update_character_rotation_from_player_to_character_system(
     let camera_up = player.up();
     let character_up = character.0.up();
 
-    character.1.rotation_from_global_to_character_quat =
+    character.1.rotation_from_camera_to_character_quat =
         Quat::from_rotation_arc(*camera_up, *character_up);
 }
 
 fn update_character_movement_player_input_system(
     keyboard_input: Res<ButtonInput<KeyCode>>,
-    player_query: Query<(&GlobalTransform,), With<PlayerTagComponent>>,
+    player_query: Query<(&Transform, &GlobalTransform), With<PlayerTagComponent>>,
     mut character_query: Query<
         (
             &CharacterRotationFromGlobalToCharacterParametersComponent,
@@ -93,7 +97,7 @@ fn update_character_movement_player_input_system(
     let mut character = character_query.single_mut();
     let player = player_query.single();
 
-    let player_global_transform = player.0;
+    let player_global_transform = player.1;
 
     let mut local_input = Vec3::ZERO;
     if keyboard_input.pressed(KeyCode::KeyW) {
@@ -112,16 +116,32 @@ fn update_character_movement_player_input_system(
         local_input.x -= 1.0;
     }
 
-    let global_input = player_global_transform
+    // transform input from camera space to global space
+    let global_movement_input = player_global_transform
         .affine()
         .transform_vector3(local_input);
 
     // println!("{}, {}", local_input, global_input);
 
-    character.1.global_character_input = Quat::mul_vec3(
-        character.0.rotation_from_global_to_character_quat,
-        global_input,
+    character.1.natural_movement_player_input = Quat::mul_vec3(
+        character.0.rotation_from_camera_to_character_quat,
+        global_movement_input,
     );
+}
+
+fn update_character_jump_player_input_system(
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+    mut character_query: Query<(&mut CharacterPlayerInputComponent,), With<CharacterTagComponent>>,
+) {
+    let mut character = character_query.single_mut();
+
+    let mut local_input = false;
+    if keyboard_input.just_pressed(KeyCode::Space) {
+        local_input = true;
+    }
+    // println!("{}, {}", local_input, global_input);
+
+    character.0.do_activate_jump_input = local_input
 }
 
 // endregion
@@ -177,7 +197,7 @@ fn draw_character_rotation_from_global_to_character_gizmos_system(
         character.0.translation,
         character.0.translation
             + Quat::mul_vec3(
-                character.1.rotation_from_global_to_character_quat,
+                character.1.rotation_from_camera_to_character_quat,
                 *player.forward(),
             ),
         Color::rgb(0.0, 1.0, 1.0),
@@ -186,7 +206,7 @@ fn draw_character_rotation_from_global_to_character_gizmos_system(
         character.0.translation,
         character.0.translation
             + Quat::mul_vec3(
-                character.1.rotation_from_global_to_character_quat,
+                character.1.rotation_from_camera_to_character_quat,
                 *player.right(),
             ),
         Color::rgb(1.0, 0.0, 1.0),
@@ -204,12 +224,12 @@ fn draw_character_input_gizmos_system(
 
     gizmos.arrow(
         character.0.translation,
-        character.0.translation + character.1.global_character_input,
+        character.0.translation + character.1.natural_movement_player_input,
         Color::WHITE,
     );
 }
 
-fn draw_character_velocity_gizmos_system(
+fn draw_character_body_velocity_gizmos_system(
     mut gizmos: Gizmos,
     character_query: Query<(&Transform, &Velocity), With<CharacterTagComponent>>,
 ) {
@@ -319,15 +339,20 @@ fn spawn_character_system(
                 inherited_visibility: InheritedVisibility::default(),
                 rotation_from_player_to_character:
                     CharacterRotationFromGlobalToCharacterParametersComponent {
-                        rotation_from_global_to_character_quat: Quat::IDENTITY,
+                        rotation_from_camera_to_character_quat: Quat::IDENTITY,
                     },
                 player_input: CharacterPlayerInputComponent {
-                    global_character_input: Vec3::ZERO,
+                    natural_movement_player_input: Vec3::ZERO,
+                    do_activate_jump_input: false,
                 },
                 fall_phase_movement_parameters: CharacterFallPhaseMovementParametersComponent {
-                    maximum_down_speed: 18.0,
-                    maximum_up_speed: 0.0,
-                    down_acceleration: 1.0,
+                    maximum_down_speed: 20.0,
+                    maximum_up_speed: 25.0,
+                    down_acceleration: 0.4,
+                },
+                movement_variables: CharacterMovementVariablesComponent {
+                    global_horizontal_velocity: Vec3::ZERO,
+                    local_vertical_velocity: 0.0,
                 },
             },
             (
@@ -423,9 +448,9 @@ fn spawn_player_system(mut commands: Commands) {
 
 // endregion
 
-/// system set for character physics
+/// system set for character movement velocity
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
-struct CharacterPhasePhysicsSetSet;
+struct CharacterPhaseMovementVelocitySystemSet;
 
 fn main() {
     let mut app = App::new();
@@ -447,17 +472,31 @@ fn main() {
     .add_systems(
         FixedPreUpdate,
         (
-            update_character_velocity_while_on_stage_system,
-            update_character_velocity_while_in_air_phase_system,
+            update_character_movement_velocity_while_on_stage_system,
+            update_character_movement_velocity_while_in_air_phase_system,
         )
-            .in_set(CharacterPhasePhysicsSetSet),
+            .in_set(CharacterPhaseMovementVelocitySystemSet),
+    );
+
+    // TODO explicit system set
+    app.add_systems(
+        FixedPreUpdate,
+        (
+            update_character_on_stage_system,
+            update_character_body_velocity_while_on_stage_using_movement_velocity_system,
+            update_character_body_velocity_while_in_air_using_movement_velocity_system,
+        )
+            .chain()
+            .after(CharacterPhaseMovementVelocitySystemSet),
     );
 
     app.add_systems(
         FixedPreUpdate,
-        update_character_rigidbody_position_system
-            .before(PhysicsSet::StepSimulation)
-            .before(CharacterPhasePhysicsSetSet),
+        (
+            update_character_on_stage_body_position_system,
+            update_character_in_air_body_position_system,
+        )
+            .before(PhysicsSet::StepSimulation),
     );
 
     app.add_systems(Update, update_player_camera_state_roll_using_input_system)
@@ -465,6 +504,8 @@ fn main() {
             Update,
             update_player_camera_desired_state_coordinates_using_input_system,
         )
+        .add_systems(Update, update_character_movement_player_input_system)
+        .add_systems(Update, update_character_jump_player_input_system)
         .add_systems(Update, transition_player_camera_state_distance_system)
         .add_systems(Update, transition_player_camera_state_height_system)
         .add_systems(
@@ -474,7 +515,6 @@ fn main() {
         .add_systems(Update, transition_player_camera_state_roll_system)
         .add_systems(Update, transition_player_camera_state_focus_system)
         .add_systems(Update, reset_player_roll_on_mouse_input_system)
-        .add_systems(Update, update_character_movement_player_input_system)
         .add_systems(Update, update_player_camera_transform_using_state_system);
 
     app.add_systems(
@@ -484,7 +524,8 @@ fn main() {
     .add_systems(PostUpdate, draw_character_transform_gizmos_system)
     .add_systems(PostUpdate, draw_character_input_gizmos_system)
     .add_systems(PostUpdate, draw_player_camera_focus_gizmos_system)
-    .add_systems(PostUpdate, draw_character_velocity_gizmos_system);
+    .add_systems(PostUpdate, draw_character_body_velocity_gizmos_system);
+    // .add_systems(PostUpdate, draw_character_movement_velocity_gizmos_system);
 
     app.run();
 }

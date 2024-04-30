@@ -1,10 +1,27 @@
-# STORY jump
+# STORY true "horizontal" velocity
+
+## TODO change to Vec2
 
 ---
 
 # STORY acceleration
 
 I would like some acceleration so it doesn't feel quite so inert
+
+## DESIGN
+
+instead of setting the characters velocity directly, I should have a "desired" velocity that is interpolated towards
+
+---
+
+# STORY
+
+drag
+drag changes the desired velocity
+
+---
+
+# STORY rapier timestep warning
 
 ---
 
