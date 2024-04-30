@@ -1,31 +1,3 @@
-# STORY render camera height and rotation gizmos
-
-## DESIGN
-
-this is:
-
-- a line from the center of the cylinder to the camera
-- a line from the bottom of the cylinder to the camera
-
----
-
-# STORY vertical movement
-
-## ACCEPTANCE
-
-I will know this is complete when:
-
-- I can jump and fall (acceleration due to gravity)
-
-## DESIGN
-
-- a JumpMovementParameters component: initial_speed
-- a FallMovementParameters component: speed_max, speed_initial, acceleration
-- CharacterOnStageComponent
-  - entity, normal, and feature of the stage the character is on
-
----
-
 # STORY acceleration
 
 I would like some acceleration so it doesn't feel quite so inert
@@ -44,6 +16,17 @@ I would like some acceleration so it doesn't feel quite so inert
 
 in the up and down ranges, the camera will snap to vertical
 in the middle 45 degree range, the camera will rotate with the character
+
+---
+
+# STORY render camera height and rotation gizmos
+
+## DESIGN
+
+this is:
+
+- a line from the center of the cylinder to the camera
+- a line from the bottom of the cylinder to the camera
 
 ---
 

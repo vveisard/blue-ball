@@ -2,8 +2,9 @@ use bevy::{
     ecs::{
         bundle::Bundle,
         component::Component,
+        entity::Entity,
         query::{With, Without},
-        system::{Query, Res},
+        system::{Commands, Query, Res},
     },
     hierarchy::Children,
     math::{Quat, Vec3},
@@ -34,9 +35,31 @@ pub struct CharacterRotationFromGlobalToCharacterParametersComponent {
 /// component with input from player for character.
 #[derive(Component)]
 pub struct CharacterPlayerInputComponent {
-    /// player input vector in global space
+    /// player input in global space, transformed to player
     /// ie, input transformed from local space to global space
-    pub global_input: Vec3,
+    pub global_character_input: Vec3,
+}
+
+/// tag parameter for on stage state of a character.
+#[derive(Component)]
+pub struct CharacterIsOnStageComponent {
+    pub stage_entity: Entity,
+}
+
+/// parameters for the "fall" phase of a character.
+#[derive(Component)]
+pub struct CharacterFallPhaseMovementParametersComponent {
+    pub maximum_down_speed: f32,
+    pub maximum_up_speed: f32,
+    /// aka "gravity"
+    pub down_acceleration: f32,
+}
+
+/// parameters for "stage" movement of a character.
+#[derive(Component)]
+pub struct CharacterStageMovementParametersComponent {
+    // additional offset for snapping
+    pub character_stage_snap_distance: f32,
 }
 
 #[derive(Bundle)]
@@ -48,22 +71,70 @@ pub struct CharacterBundle {
     pub rotation_from_player_to_character:
         CharacterRotationFromGlobalToCharacterParametersComponent,
     pub player_input: CharacterPlayerInputComponent,
+    pub fall_phase_movement_parameters: CharacterFallPhaseMovementParametersComponent,
+    pub stage_movement_paramters: CharacterStageMovementParametersComponent,
 }
 
 pub fn update_character_velocity_using_input_system(
     mut character_query: Query<
         (&CharacterPlayerInputComponent, &mut Velocity),
-        With<CharacterTagComponent>,
+        (
+            With<CharacterTagComponent>,
+            With<CharacterIsOnStageComponent>,
+        ),
     >,
 ) {
-    let mut character = character_query.single_mut();
+    let character_result = character_query.get_single_mut();
 
-    character.1.linvel = character.0.global_input * 8.0;
+    if character_result.is_err() {
+        return;
+    }
+
+    let mut character = character_result.unwrap();
+
+    character.1.linvel = character.0.global_character_input * 8.0;
+}
+
+pub fn update_character_velocity_while_in_fall_phase_system(
+    mut character_query: Query<
+        (
+            &CharacterFallPhaseMovementParametersComponent,
+            &mut Velocity,
+        ),
+        (
+            With<CharacterTagComponent>,
+            Without<CharacterIsOnStageComponent>,
+        ),
+    >,
+) {
+    let character_result = character_query.get_single_mut();
+
+    if character_result.is_err() {
+        return;
+    }
+
+    let mut character = character_result.unwrap();
+
+    character.1.linvel.y = f32::clamp(
+        character.1.linvel.y - character.0.down_acceleration,
+        -character.0.maximum_down_speed,
+        character.0.maximum_up_speed,
+    );
 }
 
 pub fn update_character_rigidbody_position_system(
     rapier_context: Res<RapierContext>,
-    mut character_query: Query<(&Children, &mut Transform), With<CharacterTagComponent>>,
+    mut commands: Commands,
+    mut character_query: Query<
+        (
+            Entity,
+            &Children,
+            &Velocity,
+            &mut CharacterStageMovementParametersComponent,
+            &mut Transform,
+        ),
+        With<CharacterTagComponent>,
+    >,
     character_body_query: Query<
         (&Transform, &GlobalTransform, &Collider),
         (
@@ -74,11 +145,13 @@ pub fn update_character_rigidbody_position_system(
 ) {
     let mut character = character_query.single_mut();
     let character_body: (&Transform, &GlobalTransform, &Collider) = character_body_query.single();
+    let character_velocity = character.2;
     let character_body_position = character_body.1.translation();
     let character_snap_direction = character_body.1.down();
-    let character_snap_distance = 1.0 + 0.16; // leg length + offset
+    let character_snap_distance = character.3.character_stage_snap_distance;
 
-    if let Some((_, ray_intersection)) = rapier_context.cast_ray_and_get_normal(
+    // from hips
+    if let Some((stage_entity, ray_intersection)) = rapier_context.cast_ray_and_get_normal(
         character_body_position,
         character_snap_direction,
         character_snap_distance,
@@ -88,15 +161,67 @@ pub fn update_character_rigidbody_position_system(
             Group::from_bits(0b0010).unwrap(),
         )),
     ) {
-        // TOOD validate angle difference is not too steep
-
         // snap to ground
-        let rotation = Quat::from_rotation_arc(*character.1.up(), ray_intersection.normal);
-        character.1.rotation *= rotation;
-        character.1.translation = ray_intersection.point;
-    } else {
-        // become airborne
-        // TODO instead, orient to inverse of "gravity"
-        character.1.rotation = Quat::IDENTITY;
+        let rotation: Quat = Quat::from_rotation_arc(*character.4.up(), ray_intersection.normal);
+        character.4.rotation *= rotation;
+        character.4.translation = ray_intersection.point;
+
+        commands
+            .entity(character.0)
+            .insert(CharacterIsOnStageComponent {
+                stage_entity: stage_entity,
+            });
+
+        // TODO update snap skin width in another system on change
+        character.3.character_stage_snap_distance = 1.0 + 0.16;
+
+        return;
     }
+
+    // moving upwards
+    if character_velocity.linvel.y > 0.0 {
+        // TODO calculate exact length of raycast using trigommetry
+
+        // from feet
+        let feet_position =
+            character_body_position + character_snap_direction * character_snap_distance;
+        if let Some((stage_entity, ray_intersection)) = rapier_context.cast_ray_and_get_normal(
+            feet_position,
+            Vec3::NEG_Y,
+            0.16,
+            true,
+            QueryFilter::new().groups(CollisionGroups::new(
+                Group::from_bits(0b0100).unwrap(),
+                Group::from_bits(0b0010).unwrap(),
+            )),
+        ) {
+            // snap to ground
+            let rotation = Quat::from_rotation_arc(*character.4.up(), ray_intersection.normal);
+            character.4.rotation *= rotation;
+            character.4.translation = ray_intersection.point;
+
+            commands
+                .entity(character.0)
+                .insert(CharacterIsOnStageComponent {
+                    stage_entity: stage_entity,
+                });
+
+            // TODO update snap skin width in another system on change
+            character.3.character_stage_snap_distance = 1.0 + 0.16;
+
+            return;
+        }
+    }
+
+    // become airborne
+    // TODO instead, orient to inverse of "gravity"
+    character.4.rotation = Quat::IDENTITY;
+    commands
+        .entity(character.0)
+        .remove::<CharacterIsOnStageComponent>();
+
+    // TODO update snap skin width in another system on change
+    character.3.character_stage_snap_distance = 1.0;
+
+    println!("airborne")
 }

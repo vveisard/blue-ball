@@ -1,5 +1,5 @@
 use bevy::{
-    app::{App, FixedPostUpdate, FixedUpdate, PostUpdate, Startup, Update},
+    app::{App, FixedUpdate, PostUpdate, Startup, Update},
     asset::Assets,
     core_pipeline::core_3d::Camera3dBundle,
     ecs::{
@@ -21,7 +21,7 @@ use bevy::{
     render::{color::Color, mesh::Mesh, view::InheritedVisibility},
     transform::{
         components::{GlobalTransform, Transform},
-        TransformBundle, TransformSystem,
+        TransformBundle,
     },
     utils::default,
     DefaultPlugins,
@@ -29,13 +29,15 @@ use bevy::{
 use bevy_rapier3d::{
     dynamics::{Ccd, Damping, GravityScale, LockedAxes, RigidBody, Sleeping, Velocity},
     geometry::{Collider, CollisionGroups, Friction, Group},
-    plugin::{NoUserData, RapierPhysicsPlugin},
+    plugin::{NoUserData, PhysicsSet, RapierPhysicsPlugin},
     render::RapierDebugRenderPlugin,
 };
 use character::{
     update_character_rigidbody_position_system, update_character_velocity_using_input_system,
-    CharacterBodyTagComponent, CharacterBundle, CharacterPlayerInputComponent,
-    CharacterRotationFromGlobalToCharacterParametersComponent, CharacterTagComponent,
+    update_character_velocity_while_in_fall_phase_system, CharacterBodyTagComponent,
+    CharacterBundle, CharacterFallPhaseMovementParametersComponent, CharacterPlayerInputComponent,
+    CharacterRotationFromGlobalToCharacterParametersComponent,
+    CharacterStageMovementParametersComponent, CharacterTagComponent,
 };
 use math::{
     CylinderCoordinates3d, CylinderCoordinates3dSmoothDampTransitionVariables,
@@ -79,11 +81,19 @@ fn update_character_rotation_from_player_to_character_system(
 
 fn update_character_movement_player_input_system(
     keyboard_input: Res<ButtonInput<KeyCode>>,
-    player_query: Query<&GlobalTransform, With<PlayerTagComponent>>,
-    mut character_query: Query<(&mut CharacterPlayerInputComponent,), With<CharacterTagComponent>>,
+    player_query: Query<(&GlobalTransform,), With<PlayerTagComponent>>,
+    mut character_query: Query<
+        (
+            &CharacterRotationFromGlobalToCharacterParametersComponent,
+            &mut CharacterPlayerInputComponent,
+        ),
+        With<CharacterTagComponent>,
+    >,
 ) {
     let mut character = character_query.single_mut();
-    let player_global_transform = player_query.single();
+    let player = player_query.single();
+
+    let player_global_transform = player.0;
 
     let mut local_input = Vec3::ZERO;
     if keyboard_input.pressed(KeyCode::KeyW) {
@@ -101,9 +111,17 @@ fn update_character_movement_player_input_system(
     if keyboard_input.pressed(KeyCode::KeyA) {
         local_input.x -= 1.0;
     }
-    character.0.global_input = player_global_transform
+
+    let global_input = player_global_transform
         .affine()
-        .transform_vector3(local_input)
+        .transform_vector3(local_input);
+
+    // println!("{}, {}", local_input, global_input);
+
+    character.1.global_character_input = Quat::mul_vec3(
+        character.0.rotation_from_global_to_character_quat,
+        global_input,
+    );
 }
 
 // endregion
@@ -178,11 +196,7 @@ fn draw_character_rotation_from_global_to_character_gizmos_system(
 fn draw_character_input_gizmos_system(
     mut gizmos: Gizmos,
     character_query: Query<
-        (
-            &Transform,
-            &CharacterPlayerInputComponent,
-            &CharacterRotationFromGlobalToCharacterParametersComponent,
-        ),
+        (&Transform, &CharacterPlayerInputComponent),
         With<CharacterTagComponent>,
     >,
 ) {
@@ -190,11 +204,7 @@ fn draw_character_input_gizmos_system(
 
     gizmos.arrow(
         character.0.translation,
-        character.0.translation
-            + Quat::mul_vec3(
-                character.2.rotation_from_global_to_character_quat,
-                character.1.global_input,
-            ),
+        character.0.translation + character.1.global_character_input,
         Color::YELLOW,
     );
 }
@@ -223,12 +233,12 @@ fn spawn_props_system(
         ),
     ));
 
-    // stage, floor
+    // stage, ramp
     commands.spawn((
         PbrBundle {
             mesh: meshes.add(Cuboid::new(5.0, 5.0, 5.0)),
             material: materials.add(Color::WHITE),
-            transform: Transform::from_xyz(0.0, 0.0, 0.0)
+            transform: Transform::from_xyz(0.0, 0.0, -5.0)
                 .with_rotation(Quat::from_rotation_x(-PI / 4.)),
             ..default()
         },
@@ -299,7 +309,15 @@ fn spawn_character_system(
                         rotation_from_global_to_character_quat: Quat::IDENTITY,
                     },
                 player_input: CharacterPlayerInputComponent {
-                    global_input: Vec3::ZERO,
+                    global_character_input: Vec3::ZERO,
+                },
+                fall_phase_movement_parameters: CharacterFallPhaseMovementParametersComponent {
+                    maximum_down_speed: 18.0,
+                    maximum_up_speed: 0.0,
+                    down_acceleration: 1.0,
+                },
+                stage_movement_paramters: CharacterStageMovementParametersComponent {
+                    character_stage_snap_distance: 1.12,
                 },
             },
             (
@@ -432,8 +450,12 @@ fn main() {
         .add_systems(Update, update_player_camera_transform_using_state_system)
         .add_systems(FixedUpdate, update_character_velocity_using_input_system)
         .add_systems(
-            FixedPostUpdate,
-            update_character_rigidbody_position_system.after(TransformSystem::TransformPropagate),
+            FixedUpdate,
+            update_character_velocity_while_in_fall_phase_system,
+        )
+        .add_systems(
+            PostUpdate,
+            update_character_rigidbody_position_system.after(PhysicsSet::Writeback),
         )
         .add_systems(
             PostUpdate,
