@@ -1,6 +1,30 @@
+# STORY jump
+
+---
+
 # STORY acceleration
 
 I would like some acceleration so it doesn't feel quite so inert
+
+---
+
+# STORY mesh movement
+
+## TODO
+
+add git lfs for 3D assets
+
+## TODO add a physics mesh
+
+https://docs.rs/bevy_rapier3d/latest/bevy_rapier3d/geometry/struct.Collider.html#method.from_bevy_mesh
+https://docs.rs/bevy_rapier3d/latest/bevy_rapier3d/geometry/struct.Collider.html#method.trimesh
+https://www.models-resource.com/dreamcast/sonicadventure2/model/16287/
+
+## ACCEPTANCE
+
+- I can move freely move around the stage mesh
+
+---
 
 ---
 
@@ -27,26 +51,6 @@ this is:
 
 - a line from the center of the cylinder to the camera
 - a line from the bottom of the cylinder to the camera
-
----
-
-# STORY mesh movement
-
-## TODO
-
-add git lfs for 3D assets
-
-## TODO add a physics mesh
-
-https://docs.rs/bevy_rapier3d/latest/bevy_rapier3d/geometry/struct.Collider.html#method.from_bevy_mesh
-https://docs.rs/bevy_rapier3d/latest/bevy_rapier3d/geometry/struct.Collider.html#method.trimesh
-https://www.models-resource.com/dreamcast/sonicadventure2/model/16287/
-
-## ACCEPTANCE
-
-- I can move freely move around the stage mesh
-
----
 
 # ACTION
 
@@ -93,3 +97,11 @@ somehow the input has a vertical (Y) component. Should I perform a projection st
 `PlayerCameraTransitionCameraStateParemters`
 
 ---
+
+for fuark engine:
+
+# STORY
+
+I want to include gravity while on slopes.
+
+Gravity should increase maximum speed and acceleration (projected along the Y direction)
