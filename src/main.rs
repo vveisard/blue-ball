@@ -1,10 +1,10 @@
 use bevy::{
-    app::{App, FixedUpdate, PostUpdate, Startup, Update},
+    app::{App, FixedPreUpdate, PostUpdate, Startup, Update},
     asset::Assets,
     core_pipeline::core_3d::Camera3dBundle,
     ecs::{
         query::With,
-        schedule::IntoSystemConfigs,
+        schedule::{IntoSystemConfigs, SystemSet},
         system::{Commands, Query, Res, ResMut},
     },
     gizmos::gizmos::Gizmos,
@@ -33,11 +33,11 @@ use bevy_rapier3d::{
     render::RapierDebugRenderPlugin,
 };
 use character::{
-    update_character_rigidbody_position_system, update_character_velocity_using_input_system,
-    update_character_velocity_while_in_fall_phase_system, CharacterBodyTagComponent,
-    CharacterBundle, CharacterFallPhaseMovementParametersComponent, CharacterPlayerInputComponent,
-    CharacterRotationFromGlobalToCharacterParametersComponent,
-    CharacterStageMovementParametersComponent, CharacterTagComponent,
+    update_character_rigidbody_position_system,
+    update_character_velocity_while_in_air_phase_system,
+    update_character_velocity_while_on_stage_system, CharacterBodyTagComponent, CharacterBundle,
+    CharacterFallPhaseMovementParametersComponent, CharacterPlayerInputComponent,
+    CharacterRotationFromGlobalToCharacterParametersComponent, CharacterTagComponent,
 };
 use math::{
     CylinderCoordinates3d, CylinderCoordinates3dSmoothDampTransitionVariables,
@@ -205,6 +205,19 @@ fn draw_character_input_gizmos_system(
     gizmos.arrow(
         character.0.translation,
         character.0.translation + character.1.global_character_input,
+        Color::WHITE,
+    );
+}
+
+fn draw_character_velocity_gizmos_system(
+    mut gizmos: Gizmos,
+    character_query: Query<(&Transform, &Velocity), With<CharacterTagComponent>>,
+) {
+    let character = character_query.single();
+
+    gizmos.arrow(
+        character.0.translation,
+        character.0.translation + character.1.linvel,
         Color::YELLOW,
     );
 }
@@ -316,9 +329,6 @@ fn spawn_character_system(
                     maximum_up_speed: 0.0,
                     down_acceleration: 1.0,
                 },
-                stage_movement_paramters: CharacterStageMovementParametersComponent {
-                    character_stage_snap_distance: 1.12,
-                },
             },
             (
                 RigidBody::Dynamic,
@@ -413,29 +423,47 @@ fn spawn_player_system(mut commands: Commands) {
 
 // endregion
 
+/// system set for character physics
+#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+struct CharacterPhasePhysicsSetSet;
+
 fn main() {
     let mut app = App::new();
 
     app.add_plugins(DefaultPlugins);
     app.add_plugins((
-        RapierPhysicsPlugin::<NoUserData>::default(),
+        RapierPhysicsPlugin::<NoUserData>::default().in_fixed_schedule(),
         RapierDebugRenderPlugin::default(),
     ));
 
     app.add_systems(Startup, spawn_character_system)
         .add_systems(Startup, spawn_player_system)
-        .add_systems(Startup, spawn_props_system)
-        .add_systems(
-            FixedUpdate,
-            update_player_camera_state_roll_using_input_system,
+        .add_systems(Startup, spawn_props_system);
+
+    app.add_systems(
+        FixedPreUpdate,
+        update_character_rotation_from_player_to_character_system,
+    )
+    .add_systems(
+        FixedPreUpdate,
+        (
+            update_character_velocity_while_on_stage_system,
+            update_character_velocity_while_in_air_phase_system,
         )
+            .in_set(CharacterPhasePhysicsSetSet),
+    );
+
+    app.add_systems(
+        FixedPreUpdate,
+        update_character_rigidbody_position_system
+            .before(PhysicsSet::StepSimulation)
+            .before(CharacterPhasePhysicsSetSet),
+    );
+
+    app.add_systems(Update, update_player_camera_state_roll_using_input_system)
         .add_systems(
-            FixedUpdate,
+            Update,
             update_player_camera_desired_state_coordinates_using_input_system,
-        )
-        .add_systems(
-            FixedUpdate,
-            update_character_rotation_from_player_to_character_system,
         )
         .add_systems(Update, transition_player_camera_state_distance_system)
         .add_systems(Update, transition_player_camera_state_height_system)
@@ -446,23 +474,17 @@ fn main() {
         .add_systems(Update, transition_player_camera_state_roll_system)
         .add_systems(Update, transition_player_camera_state_focus_system)
         .add_systems(Update, reset_player_roll_on_mouse_input_system)
-        .add_systems(FixedUpdate, update_character_movement_player_input_system)
-        .add_systems(Update, update_player_camera_transform_using_state_system)
-        .add_systems(FixedUpdate, update_character_velocity_using_input_system)
-        .add_systems(
-            FixedUpdate,
-            update_character_velocity_while_in_fall_phase_system,
-        )
-        .add_systems(
-            PostUpdate,
-            update_character_rigidbody_position_system.after(PhysicsSet::Writeback),
-        )
-        .add_systems(
-            PostUpdate,
-            draw_character_rotation_from_global_to_character_gizmos_system,
-        )
-        .add_systems(PostUpdate, draw_character_transform_gizmos_system)
-        .add_systems(PostUpdate, draw_character_input_gizmos_system)
-        .add_systems(PostUpdate, draw_player_camera_focus_gizmos_system)
-        .run();
+        .add_systems(Update, update_character_movement_player_input_system)
+        .add_systems(Update, update_player_camera_transform_using_state_system);
+
+    app.add_systems(
+        PostUpdate,
+        draw_character_rotation_from_global_to_character_gizmos_system,
+    )
+    .add_systems(PostUpdate, draw_character_transform_gizmos_system)
+    .add_systems(PostUpdate, draw_character_input_gizmos_system)
+    .add_systems(PostUpdate, draw_player_camera_focus_gizmos_system)
+    .add_systems(PostUpdate, draw_character_velocity_gizmos_system);
+
+    app.run();
 }
