@@ -1,7 +1,3 @@
-# STORY rapier timestep warning
-
----
-
 # STORY acceleration
 
 I would like some acceleration so it doesn't feel quite so inert

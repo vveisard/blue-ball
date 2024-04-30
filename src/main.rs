@@ -29,7 +29,7 @@ use bevy::{
 use bevy_rapier3d::{
     dynamics::{Ccd, Damping, GravityScale, LockedAxes, RigidBody, Sleeping, Velocity},
     geometry::{Collider, CollisionGroups, Friction, Group},
-    plugin::{NoUserData, PhysicsSet, RapierPhysicsPlugin},
+    plugin::{NoUserData, PhysicsSet, RapierConfiguration, RapierPhysicsPlugin, TimestepMode},
     render::RapierDebugRenderPlugin,
 };
 use character::{
@@ -58,7 +58,7 @@ use player::{
     PlayerCameraCurrentStateComponent, PlayerCameraDesiredStateComponent, PlayerCameraState,
     PlayerCameraTransitionStateVariablesComponent, PlayerTagComponent,
 };
-use std::f32::consts::PI;
+use std::{f32::consts::PI, time::Duration};
 
 mod character;
 mod math;
@@ -498,8 +498,18 @@ fn spawn_player_system(mut commands: Commands) {
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 struct CharacterPhaseMovementVelocitySystemSet;
 
+const DEFAULT_TIMESTEP: Duration = Duration::from_micros(15625);
+
 fn main() {
     let mut app = App::new();
+
+    app.insert_resource(RapierConfiguration {
+        timestep_mode: TimestepMode::Fixed {
+            dt: DEFAULT_TIMESTEP.as_secs_f32(),
+            substeps: 1,
+        },
+        ..default()
+    });
 
     app.add_plugins(DefaultPlugins);
     app.add_plugins((
