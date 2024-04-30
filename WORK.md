@@ -1,6 +1,4 @@
-# STORY true "horizontal" velocity
-
-## TODO change to Vec2
+# STORY rapier timestep warning
 
 ---
 
@@ -21,10 +19,6 @@ drag changes the desired velocity
 
 ---
 
-# STORY rapier timestep warning
-
----
-
 # STORY mesh movement
 
 ## TODO
@@ -40,8 +34,6 @@ https://www.models-resource.com/dreamcast/sonicadventure2/model/16287/
 ## ACCEPTANCE
 
 - I can move freely move around the stage mesh
-
----
 
 ---
 
@@ -101,11 +93,9 @@ I will know this is working when:
 
 ---
 
-# FIX fix global input direction
+# STORY optimize update_character_movement_velocity_while_on_stage_system
 
-## DESIGN
-
-somehow the input has a vertical (Y) component. Should I perform a projection step? I shouldn't _have to_...
+I'm doing an unnecessary transformation. I need to go from camera up to character up.
 
 ---
 

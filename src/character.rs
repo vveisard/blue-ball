@@ -7,7 +7,7 @@ use bevy::{
         system::{Commands, Query, Res},
     },
     hierarchy::Children,
-    math::{Quat, Vec3},
+    math::{Quat, Vec2, Vec3, Vec3Swizzles},
     render::view::InheritedVisibility,
     transform::components::{GlobalTransform, Transform},
 };
@@ -46,7 +46,7 @@ pub struct CharacterPlayerInputComponent {
 #[derive(Component)]
 pub struct CharacterMovementVariablesComponent {
     /// character global horizontal movement, on their up direction.
-    pub global_horizontal_velocity: Vec3,
+    pub global_horizontal_velocity: Vec2,
 
     /// this has a y component when about to leave the stage
     pub local_vertical_velocity: f32,
@@ -99,10 +99,19 @@ pub fn update_character_movement_velocity_while_on_stage_system(
 
     let mut character = character_result.unwrap();
 
-    character.2.global_horizontal_velocity = character.1.natural_movement_player_input * 8.0;
+    // TODO optimize this by going camera up to character up
+
+    let rotation_from_character_up_to_global_up =
+        Quat::from_rotation_arc(*character.0.up(), Vec3::Y);
+
+    character.2.global_horizontal_velocity = Quat::mul_vec3(
+        rotation_from_character_up_to_global_up,
+        character.1.natural_movement_player_input * 8.0,
+    )
+    .xz();
 
     if character.1.do_activate_jump_input {
-        character.2.local_vertical_velocity += 15.0;
+        character.2.local_vertical_velocity += 12.0;
     }
 }
 
@@ -155,16 +164,25 @@ pub fn update_character_body_velocity_while_on_stage_using_movement_velocity_sys
 
     let mut character = character_result.unwrap();
 
-    let next_body_velocity = character.3.global_horizontal_velocity
-        + character.0.up() * character.3.local_vertical_velocity;
-
-    character.4.linvel = next_body_velocity;
+    let rotation_from_global_up_to_character_up =
+        Quat::from_rotation_arc(Vec3::Y, *character.0.up());
+    let next_body_global_horizontal_velocity = Quat::mul_vec3(
+        rotation_from_global_up_to_character_up,
+        Vec3::new(
+            character.3.global_horizontal_velocity.x,
+            0.0,
+            character.3.global_horizontal_velocity.y,
+        ),
+    );
+    let next_body_global_vertical_velocity = character.0.up() * character.3.local_vertical_velocity;
+    character.4.linvel = next_body_global_horizontal_velocity + next_body_global_vertical_velocity;
 }
 
 /// system to update physics body velocity for a character using movement velocity
 pub fn update_character_body_velocity_while_in_air_using_movement_velocity_system(
     mut character_query: Query<
         (
+            &Transform,
             &CharacterPlayerInputComponent,
             &CharacterRotationFromGlobalToCharacterParametersComponent,
             &CharacterMovementVariablesComponent,
@@ -184,8 +202,11 @@ pub fn update_character_body_velocity_while_in_air_using_movement_velocity_syste
 
     let mut character = character_result.unwrap();
 
-    character.3.linvel =
-        character.2.global_horizontal_velocity + Vec3::Y * character.2.local_vertical_velocity
+    character.4.linvel = Vec3::new(
+        character.3.global_horizontal_velocity.x,
+        character.3.local_vertical_velocity,
+        character.3.global_horizontal_velocity.y,
+    )
 }
 
 pub fn update_character_on_stage_body_position_system(
@@ -322,8 +343,8 @@ pub fn update_character_on_stage_system(
 
     let jump_velocity = character.1.up() * vertical_velocity;
 
-    character.2.global_horizontal_velocity += jump_velocity;
-    character.2.global_horizontal_velocity.y = 0.0;
+    character.2.global_horizontal_velocity.x += jump_velocity.x;
+    character.2.global_horizontal_velocity.y += jump_velocity.z;
     character.2.local_vertical_velocity = jump_velocity.y;
     character.1.rotation = Quat::IDENTITY;
 

@@ -12,7 +12,7 @@ use bevy::{
     input::{keyboard::KeyCode, ButtonInput},
     math::{
         primitives::{Capsule3d, Cuboid},
-        Quat, Vec3,
+        Quat, Vec2, Vec3,
     },
     pbr::{
         light_consts, AlphaMode, AmbientLight, CascadeShadowConfigBuilder, DirectionalLight,
@@ -242,6 +242,52 @@ fn draw_character_body_velocity_gizmos_system(
     );
 }
 
+fn draw_character_vertical_movement_velocity_gizmos_system(
+    mut gizmos: Gizmos,
+    character_query: Query<
+        (&Transform, &CharacterMovementVariablesComponent),
+        With<CharacterTagComponent>,
+    >,
+) {
+    let character = character_query.single();
+
+    let next_body_velocity = character.0.up() * character.1.local_vertical_velocity;
+
+    gizmos.arrow(
+        character.0.translation,
+        character.0.translation + next_body_velocity,
+        Color::ORANGE_RED,
+    );
+}
+
+fn draw_character_horizontal_movement_velocity_gizmos_system(
+    mut gizmos: Gizmos,
+    character_query: Query<
+        (&Transform, &CharacterMovementVariablesComponent),
+        With<CharacterTagComponent>,
+    >,
+) {
+    let character = character_query.single();
+
+    let rotation_from_global_up_to_character_up =
+        Quat::from_rotation_arc(Vec3::Y, *character.0.up());
+
+    let next_body_velocity = Quat::mul_vec3(
+        rotation_from_global_up_to_character_up,
+        Vec3::new(
+            character.1.global_horizontal_velocity.x,
+            0.0,
+            character.1.global_horizontal_velocity.y,
+        ),
+    );
+
+    gizmos.arrow(
+        character.0.translation,
+        character.0.translation + next_body_velocity,
+        Color::ORANGE_RED,
+    );
+}
+
 // endregion
 
 // region startup
@@ -351,7 +397,7 @@ fn spawn_character_system(
                     down_acceleration: 0.4,
                 },
                 movement_variables: CharacterMovementVariablesComponent {
-                    global_horizontal_velocity: Vec3::ZERO,
+                    global_horizontal_velocity: Vec2::ZERO,
                     local_vertical_velocity: 0.0,
                 },
             },
@@ -524,8 +570,15 @@ fn main() {
     .add_systems(PostUpdate, draw_character_transform_gizmos_system)
     .add_systems(PostUpdate, draw_character_input_gizmos_system)
     .add_systems(PostUpdate, draw_player_camera_focus_gizmos_system)
-    .add_systems(PostUpdate, draw_character_body_velocity_gizmos_system);
-    // .add_systems(PostUpdate, draw_character_movement_velocity_gizmos_system);
+    .add_systems(PostUpdate, draw_character_body_velocity_gizmos_system)
+    .add_systems(
+        PostUpdate,
+        draw_character_horizontal_movement_velocity_gizmos_system,
+    )
+    .add_systems(
+        PostUpdate,
+        draw_character_vertical_movement_velocity_gizmos_system,
+    );
 
     app.run();
 }
