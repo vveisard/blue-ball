@@ -1,17 +1,49 @@
+# STORY render camera height and rotation gizmos
+
+## DESIGN
+
+this is:
+
+- a line from the center of the cylinder to the camera
+- a line from the bottom of the cylinder to the camera
+
+---
+
 # STORY acceleration
 
 I would like some acceleration so it doesn't feel quite so inert
 
 ## DESIGN
 
-instead of setting the characters velocity directly, I should have a "desired" velocity that is interpolated towards
+Speed parameters
+
+In the update velocity frame, simply calculate the desired velocity and then use some move towards
+
+https://discussions.unity.com/t/any-one-know-maths-behind-this-movetowards-function/65501/4
 
 ---
 
-# STORY
+# STORY drag
 
-drag
-drag changes the desired velocity
+## DESIGN
+
+drag changes the desired velocity towards zero when there is no input
+
+Nothing to do with _friction_, this is merely a deceleration towards zero of the desired velocity using some parameters
+
+---
+
+# STORY logo
+
+---
+
+# ACTION
+
+basic show off
+Publish on itch.io under my personal account
+share on discord
+share on 4chan/vg/sthg/
+share with discord
 
 ---
 
@@ -48,25 +80,55 @@ in the middle 45 degree range, the camera will rotate with the character
 
 ---
 
-# STORY render camera height and rotation gizmos
-
-## DESIGN
-
-this is:
-
-- a line from the center of the cylinder to the camera
-- a line from the bottom of the cylinder to the camera
-
 # ACTION
 
 show off the current build
-Publish on Twitch under my personal account
 
 ---
 
-# ACTION
+---
 
-Show off
+---
+
+for fuark engine:
+
+# STORY as a developer, I want phase machine
+
+Refactor to use states.
+
+## ACCEPTANCE
+
+I will know this is complete when:
+
+- as a developper, I can see the current phase
+
+---
+
+# STORY as a player, I want animations
+
+## DESIGN
+
+walking animation speed should be determined by speed
+
+---
+
+# STORY as a player, I want running states
+
+## DESIGN
+
+running uses a _horizontal direction_ and _velocity_ .
+
+A "running" character has a desired direction (rotates towards) and desired speed.
+
+the direction and magnitude of the stick determines this
+
+---
+
+# STORY as a player, I want to run along walls
+
+---
+
+# STORY as a player, I want slope velocity
 
 ---
 
@@ -100,8 +162,6 @@ I'm doing an unnecessary transformation. I need to go from camera up to characte
 `PlayerCameraTransitionCameraStateParemters`
 
 ---
-
-for fuark engine:
 
 # STORY
 
