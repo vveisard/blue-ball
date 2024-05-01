@@ -9,20 +9,6 @@ this is:
 
 ---
 
-# STORY acceleration
-
-I would like some acceleration so it doesn't feel quite so inert
-
-## DESIGN
-
-Speed parameters
-
-In the update velocity frame, simply calculate the desired velocity and then use some move towards
-
-https://discussions.unity.com/t/any-one-know-maths-behind-this-movetowards-function/65501/4
-
----
-
 # STORY drag
 
 ## DESIGN
