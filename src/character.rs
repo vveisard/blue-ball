@@ -37,10 +37,9 @@ pub struct CharacterRotationFromGlobalToCharacterParametersComponent {
 /// component with input from player for character.
 #[derive(Component)]
 pub struct CharacterPlayerInputComponent {
+    /// movement input transformed onto the character's local up.
+    /// transformed using rotation instead of vector projection.
     pub global_movement_player_input: Vec3,
-    /// movement input from camera space rotated onto the character's horizontal (xz) plane.
-    /// "natural" transformation, as opposted to projection
-    pub camera_movement_player_input: Vec2,
 
     pub do_activate_jump_input: bool,
 }
@@ -48,9 +47,11 @@ pub struct CharacterPlayerInputComponent {
 /// component with parameters for movement for a character.
 #[derive(Component)]
 pub struct CharacterMovementVariablesComponent {
-    /// character global horizontal movement, on their up direction.
+    /// character global horizontal movement velocity, on their local xz plane.
+    /// ie, only considers up
     pub global_horizontal_velocity: Vec2,
 
+    /// character local movement velocity.
     /// this has a y component when about to leave the stage
     pub local_vertical_velocity: f32,
 }
@@ -58,8 +59,11 @@ pub struct CharacterMovementVariablesComponent {
 /// component with parameters for movement for a character.
 #[derive(Component)]
 pub struct CharacterMovementParametersComponent {
-    /// how much to acclerate updwards towards desired velocity each frame
+    /// amount to acclerate updwards towards desired velocity each update.
     pub global_horizontal_acceleration: f32,
+
+    /// amount to accelerate towards zero each update while there is no input.
+    pub global_horizontal_drag: f32,
 }
 
 /// component for stage state of a character.
@@ -91,8 +95,8 @@ pub struct CharacterBundle {
     pub movement_parameters: CharacterMovementParametersComponent,
 }
 
-/// system to update movement body velocity of a character which is on the stage
-pub fn update_character_horizontal_movement_velocity_stage_system(
+/// system to update movement body velocity of a character
+pub fn update_character_horizontal_movement_velocity_system(
     mut character_query: Query<
         (
             &Transform,
@@ -100,7 +104,7 @@ pub fn update_character_horizontal_movement_velocity_stage_system(
             &CharacterMovementParametersComponent,
             &mut CharacterMovementVariablesComponent,
         ),
-        (With<CharacterTagComponent>, With<CharacterStageComponent>),
+        With<CharacterTagComponent>,
     >,
 ) {
     let character_result = character_query.get_single_mut();
@@ -116,19 +120,26 @@ pub fn update_character_horizontal_movement_velocity_stage_system(
     let rotation_from_character_up_to_global_up =
         Quat::from_rotation_arc(*character.0.up(), Vec3::Y);
 
-    let desired_velocity = Quat::mul_vec3(
-        rotation_from_character_up_to_global_up,
-        character.1.global_movement_player_input * 8.0,
-    )
-    .xz();
+    let desired_velocity = character.1.global_movement_player_input * 8.0;
+    let desired_velocity_magnitude = desired_velocity.length_squared();
 
-    let next_velocity = Vec2::move_towards(
+    let acceleration: f32;
+    if desired_velocity_magnitude > 0.0 {
+        acceleration = character.2.global_horizontal_acceleration;
+    } else {
+        acceleration = character.2.global_horizontal_drag;
+    }
+
+    let desired_global_velocity =
+        Quat::mul_vec3(rotation_from_character_up_to_global_up, desired_velocity).xz();
+
+    let next_global_velocity = Vec2::move_towards(
         character.3.global_horizontal_velocity,
-        desired_velocity,
-        character.2.global_horizontal_acceleration,
+        desired_global_velocity,
+        acceleration,
     );
 
-    character.3.global_horizontal_velocity = next_velocity;
+    character.3.global_horizontal_velocity = next_global_velocity;
 }
 
 /// system to update movement body velocity of a character which is on the stage

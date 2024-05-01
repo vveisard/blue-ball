@@ -35,7 +35,7 @@ use bevy_rapier3d::{
 use character::{
     update_character_body_velocity_while_in_air_using_movement_velocity_system,
     update_character_body_velocity_while_on_stage_using_movement_velocity_system,
-    update_character_horizontal_movement_velocity_stage_system,
+    update_character_horizontal_movement_velocity_system,
     update_character_in_air_body_position_system,
     update_character_movement_velocity_while_in_air_phase_system,
     update_character_movement_velocity_while_on_stage_system,
@@ -171,15 +171,15 @@ fn draw_character_transform_gizmos_system(
 
     gizmos.arrow(
         character.0.translation,
-        character.0.translation + *character.0.up(),
-        Color::GREEN.with_a(0.5),
-    );
-
-    gizmos.arrow(
-        character.0.translation,
         character.0.translation + *character.0.forward(),
         Color::BLUE.with_a(0.5),
     );
+
+    // gizmos.arrow(
+    //     character.0.translation,
+    //     character.0.translation + *character.0.up(),
+    //     Color::GREEN.with_a(0.5),
+    // );
 }
 
 fn draw_character_rotation_from_global_to_character_gizmos_system(
@@ -390,7 +390,6 @@ fn spawn_character_system(
                         rotation_from_camera_to_character_quat: Quat::IDENTITY,
                     },
                 player_input: CharacterPlayerInputComponent {
-                    camera_movement_player_input: Vec2::ZERO,
                     global_movement_player_input: Vec3::ZERO,
                     do_activate_jump_input: false,
                 },
@@ -405,6 +404,7 @@ fn spawn_character_system(
                 },
                 movement_parameters: CharacterMovementParametersComponent {
                     global_horizontal_acceleration: 0.4,
+                    global_horizontal_drag: 0.2,
                 },
             },
             (
@@ -414,10 +414,6 @@ fn spawn_character_system(
                 Sleeping::disabled(),
                 Ccd::enabled(),
                 LockedAxes::ROTATION_LOCKED,
-                Friction {
-                    coefficient: 0.0,
-                    ..default()
-                },
                 Damping {
                     linear_damping: 0.0,
                     angular_damping: 0.0,
@@ -441,11 +437,15 @@ fn spawn_character_system(
                     local: Transform::from_xyz(0.0, 1.0, 0.0), // TOOD use height
                     ..default()
                 },
-                Collider::ball(0.5),
+                Collider::ball(0.25),
                 CollisionGroups::new(
                     Group::from_bits(0b0100).unwrap(),
                     Group::from_bits(0b0110).unwrap(),
                 ),
+                Friction {
+                    coefficient: 0.0,
+                    combine_rule: bevy_rapier3d::dynamics::CoefficientCombineRule::Min,
+                },
             ));
         });
 }
@@ -534,7 +534,7 @@ fn main() {
     .add_systems(
         FixedPreUpdate,
         (
-            update_character_horizontal_movement_velocity_stage_system,
+            update_character_horizontal_movement_velocity_system,
             update_character_movement_velocity_while_on_stage_system,
             update_character_movement_velocity_while_in_air_phase_system,
         )
