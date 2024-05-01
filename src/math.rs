@@ -1,4 +1,4 @@
-use bevy::math::Vec3;
+use bevy::math::{Vec2, Vec3};
 
 pub struct CylinderCoordinates3d {
     // distance to the center
@@ -151,5 +151,63 @@ impl SmoothDamp for f32 {
         }
 
         return (output, current_velocity);
+    }
+}
+
+pub trait MoveTowards {
+    fn move_towards(self, target: Self, max_delta: f32) -> Self;
+}
+
+impl MoveTowards for f32 {
+    fn move_towards(self, target: Self, max_delta: f32) -> f32 {
+        if f32::abs(target - self) <= max_delta {
+            return target;
+        }
+        return self + f32::signum(target - self) * max_delta;
+    }
+}
+
+impl MoveTowards for Vec2 {
+    fn move_towards(self, target: Vec2, max_delta: f32) -> Vec2 {
+        let to_vector_x: f32 = target.x - self.x;
+        let to_vector_y: f32 = target.y - self.y;
+
+        let square_distance: f32 = to_vector_x * to_vector_x + to_vector_y * to_vector_y;
+
+        if square_distance == 0.0 || (max_delta >= 0.0 && square_distance <= max_delta * max_delta)
+        {
+            return target;
+        }
+
+        let distance: f32 = f32::sqrt(square_distance);
+
+        return Vec2::new(
+            self.x + to_vector_x / distance * max_delta,
+            self.y + to_vector_y / distance * max_delta,
+        );
+    }
+}
+
+impl MoveTowards for Vec3 {
+    fn move_towards(self, target: Vec3, max_delta: f32) -> Vec3 {
+        let to_vector_x: f32 = target.x - self.x;
+        let to_vector_y: f32 = target.y - self.y;
+        let to_vector_z: f32 = target.z - self.z;
+
+        let square_distance: f32 =
+            to_vector_x * to_vector_x + to_vector_y * to_vector_y + to_vector_z * to_vector_z;
+
+        if square_distance == 0.0 || (max_delta >= 0.0 && square_distance <= max_delta * max_delta)
+        {
+            return target;
+        }
+
+        let distance: f32 = f32::sqrt(square_distance);
+
+        return Vec3::new(
+            self.x + to_vector_x / distance * max_delta,
+            self.y + to_vector_y / distance * max_delta,
+            self.z + to_vector_z / distance * max_delta,
+        );
     }
 }

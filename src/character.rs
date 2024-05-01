@@ -18,6 +18,8 @@ use bevy_rapier3d::{
     plugin::RapierContext,
 };
 
+use crate::math::MoveTowards;
+
 #[derive(Component)]
 pub struct CharacterTagComponent;
 
@@ -28,21 +30,22 @@ pub struct CharacterBodyTagComponent;
 /// Character component.
 #[derive(Component)]
 pub struct CharacterRotationFromGlobalToCharacterParametersComponent {
-    /// rotation from global space to character space
+    /// rotation from camera up to character up
     pub rotation_from_camera_to_character_quat: Quat,
 }
 
 /// component with input from player for character.
 #[derive(Component)]
 pub struct CharacterPlayerInputComponent {
+    pub global_movement_player_input: Vec3,
     /// movement input from camera space rotated onto the character's horizontal (xz) plane.
     /// "natural" transformation, as opposted to projection
-    pub natural_movement_player_input: Vec3,
+    pub camera_movement_player_input: Vec2,
 
     pub do_activate_jump_input: bool,
 }
 
-/// variables for character movement on the stage
+/// component with parameters for movement for a character.
 #[derive(Component)]
 pub struct CharacterMovementVariablesComponent {
     /// character global horizontal movement, on their up direction.
@@ -50,6 +53,13 @@ pub struct CharacterMovementVariablesComponent {
 
     /// this has a y component when about to leave the stage
     pub local_vertical_velocity: f32,
+}
+
+/// component with parameters for movement for a character.
+#[derive(Component)]
+pub struct CharacterMovementParametersComponent {
+    /// how much to acclerate updwards towards desired velocity each frame
+    pub global_horizontal_acceleration: f32,
 }
 
 /// component for stage state of a character.
@@ -78,14 +88,16 @@ pub struct CharacterBundle {
     pub player_input: CharacterPlayerInputComponent,
     pub fall_phase_movement_parameters: CharacterFallPhaseMovementParametersComponent,
     pub movement_variables: CharacterMovementVariablesComponent,
+    pub movement_parameters: CharacterMovementParametersComponent,
 }
 
 /// system to update movement body velocity of a character which is on the stage
-pub fn update_character_movement_velocity_while_on_stage_system(
+pub fn update_character_horizontal_movement_velocity_stage_system(
     mut character_query: Query<
         (
             &Transform,
             &CharacterPlayerInputComponent,
+            &CharacterMovementParametersComponent,
             &mut CharacterMovementVariablesComponent,
         ),
         (With<CharacterTagComponent>, With<CharacterStageComponent>),
@@ -104,14 +116,43 @@ pub fn update_character_movement_velocity_while_on_stage_system(
     let rotation_from_character_up_to_global_up =
         Quat::from_rotation_arc(*character.0.up(), Vec3::Y);
 
-    character.2.global_horizontal_velocity = Quat::mul_vec3(
+    let desired_velocity = Quat::mul_vec3(
         rotation_from_character_up_to_global_up,
-        character.1.natural_movement_player_input * 8.0,
+        character.1.global_movement_player_input * 8.0,
     )
     .xz();
 
+    let next_velocity = Vec2::move_towards(
+        character.3.global_horizontal_velocity,
+        desired_velocity,
+        character.2.global_horizontal_acceleration,
+    );
+
+    character.3.global_horizontal_velocity = next_velocity;
+}
+
+/// system to update movement body velocity of a character which is on the stage
+pub fn update_character_movement_velocity_while_on_stage_system(
+    mut character_query: Query<
+        (
+            &Transform,
+            &CharacterPlayerInputComponent,
+            &CharacterMovementParametersComponent,
+            &mut CharacterMovementVariablesComponent,
+        ),
+        (With<CharacterTagComponent>, With<CharacterStageComponent>),
+    >,
+) {
+    let character_result = character_query.get_single_mut();
+
+    if character_result.is_err() {
+        return;
+    }
+
+    let mut character = character_result.unwrap();
+
     if character.1.do_activate_jump_input {
-        character.2.local_vertical_velocity += 12.0;
+        character.3.local_vertical_velocity += 12.0;
     }
 }
 

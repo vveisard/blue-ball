@@ -35,13 +35,15 @@ use bevy_rapier3d::{
 use character::{
     update_character_body_velocity_while_in_air_using_movement_velocity_system,
     update_character_body_velocity_while_on_stage_using_movement_velocity_system,
+    update_character_horizontal_movement_velocity_stage_system,
     update_character_in_air_body_position_system,
     update_character_movement_velocity_while_in_air_phase_system,
     update_character_movement_velocity_while_on_stage_system,
     update_character_on_stage_body_position_system, update_character_on_stage_system,
     CharacterBodyTagComponent, CharacterBundle, CharacterFallPhaseMovementParametersComponent,
-    CharacterMovementVariablesComponent, CharacterPlayerInputComponent,
-    CharacterRotationFromGlobalToCharacterParametersComponent, CharacterTagComponent,
+    CharacterMovementParametersComponent, CharacterMovementVariablesComponent,
+    CharacterPlayerInputComponent, CharacterRotationFromGlobalToCharacterParametersComponent,
+    CharacterTagComponent,
 };
 use math::{
     CylinderCoordinates3d, CylinderCoordinates3dSmoothDampTransitionVariables,
@@ -123,7 +125,7 @@ fn update_character_movement_player_input_system(
 
     // println!("{}, {}", local_input, global_input);
 
-    character.1.natural_movement_player_input = Quat::mul_vec3(
+    character.1.global_movement_player_input = Quat::mul_vec3(
         character.0.rotation_from_camera_to_character_quat,
         global_movement_input,
     );
@@ -224,7 +226,7 @@ fn draw_character_input_gizmos_system(
 
     gizmos.arrow(
         character.0.translation,
-        character.0.translation + character.1.natural_movement_player_input,
+        character.0.translation + character.1.global_movement_player_input,
         Color::WHITE,
     );
 }
@@ -388,7 +390,8 @@ fn spawn_character_system(
                         rotation_from_camera_to_character_quat: Quat::IDENTITY,
                     },
                 player_input: CharacterPlayerInputComponent {
-                    natural_movement_player_input: Vec3::ZERO,
+                    camera_movement_player_input: Vec2::ZERO,
+                    global_movement_player_input: Vec3::ZERO,
                     do_activate_jump_input: false,
                 },
                 fall_phase_movement_parameters: CharacterFallPhaseMovementParametersComponent {
@@ -399,6 +402,9 @@ fn spawn_character_system(
                 movement_variables: CharacterMovementVariablesComponent {
                     global_horizontal_velocity: Vec2::ZERO,
                     local_vertical_velocity: 0.0,
+                },
+                movement_parameters: CharacterMovementParametersComponent {
+                    global_horizontal_acceleration: 0.4,
                 },
             },
             (
@@ -528,6 +534,7 @@ fn main() {
     .add_systems(
         FixedPreUpdate,
         (
+            update_character_horizontal_movement_velocity_stage_system,
             update_character_movement_velocity_while_on_stage_system,
             update_character_movement_velocity_while_in_air_phase_system,
         )
