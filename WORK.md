@@ -9,16 +9,6 @@ this is:
 
 ---
 
-# STORY drag
-
-## DESIGN
-
-drag changes the desired velocity towards zero when there is no input
-
-Nothing to do with _friction_, this is merely a deceleration towards zero of the desired velocity using some parameters
-
----
-
 # STORY logo
 
 ---
