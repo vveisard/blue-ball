@@ -5,6 +5,10 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[[bin]]
+name = "blue-ball"
+path = "source/code/main.rs"
+
 [dependencies]
 bevy = "0.13.2"
 bevy_rapier3d = { version = "0.25.0", features = [ "simd-stable", "debug-render-3d" ] }
