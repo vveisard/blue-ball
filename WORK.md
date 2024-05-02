@@ -1,30 +1,16 @@
-# STORY stage loading
+# STORY mesh movement
+
+## RESOURCES
+
+https://docs.rs/bevy_rapier3d/latest/bevy_rapier3d/geometry/struct.Collider.html#method.from_bevy_mesh
+https://docs.rs/bevy_rapier3d/latest/bevy_rapier3d/geometry/struct.Collider.html#method.trimesh
+https://www.models-resource.com/dreamcast/sonicadventure2/model/16287/
 
 ## ACCEPTANCE
 
-- black screen while loading
-- load into the level with the entitystage already spawned
+- I can move freely move around the stage mesh
 
-## TODO delay spawn of character until SetupStage
-
-Probably OnEnter SetupNextStage
-
-## TODO configure all my system in a "play system set"
-
-which only run while in AppState::Play
-
-## TODO configure bevy render system sets to only work when Playing
-
----
-
-# STORY render camera height and rotation gizmos
-
-## DESIGN
-
-this is:
-
-- a line from the center of the cylinder to the camera
-- a line from the bottom of the cylinder to the camera
+## TODO add a physics mesh
 
 ---
 
@@ -46,21 +32,14 @@ share with discord
 
 ---
 
-# STORY mesh movement
+# STORY render camera height and rotation gizmos
 
-## TODO
+## DESIGN
 
-add git lfs for 3D assets
+this is:
 
-## TODO add a physics mesh
-
-https://docs.rs/bevy_rapier3d/latest/bevy_rapier3d/geometry/struct.Collider.html#method.from_bevy_mesh
-https://docs.rs/bevy_rapier3d/latest/bevy_rapier3d/geometry/struct.Collider.html#method.trimesh
-https://www.models-resource.com/dreamcast/sonicadventure2/model/16287/
-
-## ACCEPTANCE
-
-- I can move freely move around the stage mesh
+- a line from the center of the cylinder to the camera
+- a line from the bottom of the cylinder to the camera
 
 ---
 
@@ -91,7 +70,7 @@ show off the current build
 
 for fuark engine:
 
-# STORY as a developer, I want phase machine
+# STORY as a developer, I want state machine
 
 Refactor to use states.
 
@@ -127,7 +106,19 @@ the direction and magnitude of the stick determines this
 
 ---
 
-# STORY as a player, I want slope velocity
+# STORY as a player, I want slope movement velocity
+
+## DESIGN
+
+characters should naturally begin to accelerate down slopes. Characters should have a harder time accelerating up slopes.
+
+I think it makes sense to apply a constant "acceleration" for slopes.
+
+---
+
+# STORY as a developer, I want to render only when playing
+
+## TODO configure bevy render system sets to only work when Playing
 
 ---
 
