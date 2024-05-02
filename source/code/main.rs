@@ -4,7 +4,9 @@ use bevy::{
     core_pipeline::core_3d::Camera3dBundle,
     ecs::{
         query::With,
-        schedule::{common_conditions::in_state, IntoSystemConfigs, NextState, States, SystemSet},
+        schedule::{
+            common_conditions::in_state, IntoSystemConfigs, NextState, OnEnter, States, SystemSet,
+        },
         system::{Commands, Query, Res, ResMut, Resource},
     },
     gizmos::gizmos::Gizmos,
@@ -401,7 +403,7 @@ fn setup_next_zone_to_greenhillzone_system(
     next_app_state.set(AppState::LoadNextZone);
 }
 
-fn spawn_props_system(
+fn spawn_test_zone_system(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
@@ -411,7 +413,7 @@ fn spawn_props_system(
         PbrBundle {
             mesh: meshes.add(Cuboid::new(25.0, 1.0, 25.0)),
             material: materials.add(Color::WHITE),
-            transform: Transform::from_xyz(0.0, -0.5, 0.0),
+            transform: Transform::from_xyz(0.0, 99.5, 0.0),
             ..default()
         },
         Collider::cuboid(12.5, 0.5, 12.5),
@@ -426,7 +428,7 @@ fn spawn_props_system(
         PbrBundle {
             mesh: meshes.add(Cuboid::new(5.0, 5.0, 5.0)),
             material: materials.add(Color::WHITE),
-            transform: Transform::from_xyz(0.0, 0.0, -5.0)
+            transform: Transform::from_xyz(0.0, 100.0, -5.0)
                 .with_rotation(Quat::from_rotation_x(-PI / 4.)),
             ..default()
         },
@@ -442,7 +444,7 @@ fn spawn_props_system(
         PbrBundle {
             mesh: meshes.add(Cuboid::new(1.0, 1.0, 1.0)),
             material: materials.add(Color::WHITE),
-            transform: Transform::from_xyz(5.0, 0.5, 5.0),
+            transform: Transform::from_xyz(5.0, 100.5, 5.0),
             ..default()
         },
         Collider::cuboid(0.5, 0.5, 0.5),
@@ -466,7 +468,7 @@ fn spawn_props_system(
             ..default()
         },
         transform: Transform {
-            translation: Vec3::new(0.0, 2.0, 0.0),
+            translation: Vec3::new(0.0, 0.0, 0.0),
             rotation: Quat::from_rotation_x(-PI / 4.),
             ..default()
         },
@@ -490,7 +492,7 @@ fn spawn_character_system(
             CharacterBundle {
                 tag: CharacterTagComponent,
                 global_transform: GlobalTransform::default(),
-                transform: Transform::from_xyz(0.0, 0.0, 0.0),
+                transform: Transform::from_xyz(0.0, 100.0, 0.0),
                 inherited_visibility: InheritedVisibility::default(),
                 rotation_from_player_to_character:
                     CharacterRotationFromGlobalToCharacterParametersComponent {
@@ -625,16 +627,24 @@ fn main() {
         ..default()
     });
 
+    app.add_systems(
+        OnEnter(AppState::SetupNextZone),
+        (
+            spawn_scene_using_next_zone_resource_system,
+            spawn_character_system,
+            spawn_player_system,
+            spawn_test_zone_system,
+        )
+            .chain(),
+    );
+
     app.add_plugins(DefaultPlugins);
     app.add_plugins((
         RapierPhysicsPlugin::<NoUserData>::default().in_fixed_schedule(),
         RapierDebugRenderPlugin::default(),
     ));
 
-    app.add_systems(Startup, spawn_character_system)
-        .add_systems(Startup, spawn_player_system)
-        .add_systems(Startup, spawn_props_system)
-        .add_systems(Startup, setup_next_zone_to_greenhillzone_system);
+    app.add_systems(Startup, setup_next_zone_to_greenhillzone_system);
 
     app.add_systems(Update, transition_app_state_from_load_next_zone_to_setup_next_zone_when_next_zone_assets_loaded_system.run_if(in_state(AppState::LoadNextZone)));
     app.add_systems(
@@ -644,25 +654,23 @@ fn main() {
     );
 
     app.add_systems(
-        Update,
-        spawn_scene_using_next_zone_resource_system.run_if(in_state(AppState::SetupNextZone)),
+        FixedPreUpdate,
+        (update_character_rotation_from_player_to_character_system)
+            .run_if(in_state(AppState::Play))
+            .before(CharacterPhaseMovementVelocitySystemSet),
     );
 
     app.add_systems(
-        FixedPreUpdate,
-        update_character_rotation_from_player_to_character_system,
-    )
-    .add_systems(
         FixedPreUpdate,
         (
             update_character_horizontal_movement_velocity_system,
             update_character_movement_velocity_while_on_stage_system,
             update_character_movement_velocity_while_in_air_phase_system,
         )
-            .in_set(CharacterPhaseMovementVelocitySystemSet),
+            .in_set(CharacterPhaseMovementVelocitySystemSet)
+            .run_if(in_state(AppState::Play)),
     );
 
-    // TODO explicit system set
     app.add_systems(
         FixedPreUpdate,
         (
@@ -671,7 +679,8 @@ fn main() {
             update_character_body_velocity_while_in_air_using_movement_velocity_system,
         )
             .chain()
-            .after(CharacterPhaseMovementVelocitySystemSet),
+            .after(CharacterPhaseMovementVelocitySystemSet)
+            .run_if(in_state(AppState::Play)),
     );
 
     app.add_systems(
@@ -680,42 +689,44 @@ fn main() {
             update_character_body_while_on_stage_system,
             update_character_body_try_land_while_in_air_system,
         )
-            .before(PhysicsSet::StepSimulation),
+            .before(PhysicsSet::StepSimulation)
+            .run_if(in_state(AppState::Play)),
     );
 
-    app.add_systems(Update, update_player_camera_state_roll_using_input_system)
-        .add_systems(
-            Update,
+    app.add_systems(
+        Update,
+        (update_player_camera_state_roll_using_input_system).run_if(in_state(AppState::Play)),
+    );
+
+    app.add_systems(
+        Update,
+        (
             update_player_camera_desired_state_coordinates_using_input_system,
-        )
-        .add_systems(Update, update_character_movement_player_input_system)
-        .add_systems(Update, update_character_jump_player_input_system)
-        .add_systems(Update, transition_player_camera_state_distance_system)
-        .add_systems(Update, transition_player_camera_state_height_system)
-        .add_systems(
-            Update,
+            update_character_movement_player_input_system,
+            reset_player_roll_on_mouse_input_system,
+            update_character_jump_player_input_system,
+            transition_player_camera_state_distance_system,
+            transition_player_camera_state_height_system,
             transition_player_camera_current_state_rotation_system,
+            transition_player_camera_state_roll_system,
+            transition_player_camera_state_focus_system,
+            update_player_camera_transform_using_state_system,
         )
-        .add_systems(Update, transition_player_camera_state_roll_system)
-        .add_systems(Update, transition_player_camera_state_focus_system)
-        .add_systems(Update, reset_player_roll_on_mouse_input_system)
-        .add_systems(Update, update_player_camera_transform_using_state_system);
+            .run_if(in_state(AppState::Play)),
+    );
 
     app.add_systems(
         PostUpdate,
-        draw_character_rotation_from_global_to_character_gizmos_system,
-    )
-    .add_systems(PostUpdate, draw_character_transform_gizmos_system)
-    .add_systems(PostUpdate, draw_character_input_gizmos_system)
-    .add_systems(PostUpdate, draw_player_camera_focus_gizmos_system)
-    .add_systems(PostUpdate, draw_character_body_velocity_gizmos_system)
-    .add_systems(
-        PostUpdate,
-        draw_character_horizontal_movement_velocity_gizmos_system,
-    )
-    .add_systems(
-        PostUpdate,
-        draw_character_vertical_movement_velocity_gizmos_system,
+        (
+            draw_character_rotation_from_global_to_character_gizmos_system,
+            draw_character_transform_gizmos_system,
+            draw_character_input_gizmos_system,
+            draw_player_camera_focus_gizmos_system,
+            draw_character_body_velocity_gizmos_system,
+            draw_character_horizontal_movement_velocity_gizmos_system,
+            draw_character_vertical_movement_velocity_gizmos_system,
+        )
+            .run_if(in_state(AppState::Play)),
     );
 
     app.run();

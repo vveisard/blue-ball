@@ -3,11 +3,11 @@
 ## ACCEPTANCE
 
 - black screen while loading
-- load into the level with the stage already spawned
+- load into the level with the entitystage already spawned
 
 ## TODO delay spawn of character until SetupStage
 
-Probably on transition to SetupNextStage
+Probably OnEnter SetupNextStage
 
 ## TODO configure all my system in a "play system set"
 
