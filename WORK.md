@@ -1,3 +1,22 @@
+# STORY stage loading
+
+## ACCEPTANCE
+
+- black screen while loading
+- load into the level with the stage already spawned
+
+## TODO delay spawn of character until SetupStage
+
+Probably on transition to SetupNextStage
+
+## TODO configure all my system in a "play system set"
+
+which only run while in AppState::Play
+
+## TODO configure bevy render system sets to only work when Playing
+
+---
+
 # STORY render camera height and rotation gizmos
 
 ## DESIGN
@@ -6,6 +25,10 @@ this is:
 
 - a line from the center of the cylinder to the camera
 - a line from the bottom of the cylinder to the camera
+
+---
+
+# STORY gamepad controls
 
 ---
 

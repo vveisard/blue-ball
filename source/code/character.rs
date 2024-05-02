@@ -261,7 +261,8 @@ pub fn update_character_body_velocity_while_in_air_using_movement_velocity_syste
     )
 }
 
-pub fn update_character_on_stage_body_position_system(
+/// system to update a character body and stage status while on stage
+pub fn update_character_body_while_on_stage_system(
     rapier_context: Res<RapierContext>,
     mut commands: Commands,
     mut character_query: Query<
@@ -368,7 +369,8 @@ pub fn update_character_on_stage_body_position_system(
     println!("leave");
 }
 
-pub fn update_character_on_stage_system(
+/// system to update the stage status of a character while that charcter is on stage
+pub fn update_character_body_try_jump_while_on_stage_system(
     mut commands: Commands,
     mut character_query: Query<
         (
@@ -407,7 +409,8 @@ pub fn update_character_on_stage_system(
         .remove::<CharacterStageComponent>();
 }
 
-pub fn update_character_in_air_body_position_system(
+/// system to update the stage status of a character while that charcter is not on stage
+pub fn update_character_body_try_land_while_in_air_system(
     rapier_context: Res<RapierContext>,
     mut commands: Commands,
     mut character_query: Query<

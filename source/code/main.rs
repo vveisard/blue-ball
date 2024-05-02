@@ -1,13 +1,14 @@
 use bevy::{
     app::{App, FixedPreUpdate, PostUpdate, Startup, Update},
-    asset::Assets,
+    asset::{AssetServer, Assets, Handle, LoadState, UntypedHandle},
     core_pipeline::core_3d::Camera3dBundle,
     ecs::{
         query::With,
-        schedule::{IntoSystemConfigs, SystemSet},
-        system::{Commands, Query, Res, ResMut},
+        schedule::{common_conditions::in_state, IntoSystemConfigs, NextState, States, SystemSet},
+        system::{Commands, Query, Res, ResMut, Resource},
     },
     gizmos::gizmos::Gizmos,
+    gltf::Gltf,
     hierarchy::BuildChildren,
     input::{keyboard::KeyCode, ButtonInput},
     math::{
@@ -19,6 +20,7 @@ use bevy::{
         DirectionalLightBundle, PbrBundle, StandardMaterial,
     },
     render::{color::Color, mesh::Mesh, view::InheritedVisibility},
+    scene::SceneBundle,
     transform::{
         components::{GlobalTransform, Transform},
         TransformBundle,
@@ -33,14 +35,15 @@ use bevy_rapier3d::{
     render::RapierDebugRenderPlugin,
 };
 use character::{
+    update_character_body_try_jump_while_on_stage_system,
+    update_character_body_try_land_while_in_air_system,
     update_character_body_velocity_while_in_air_using_movement_velocity_system,
     update_character_body_velocity_while_on_stage_using_movement_velocity_system,
+    update_character_body_while_on_stage_system,
     update_character_horizontal_movement_velocity_system,
-    update_character_in_air_body_position_system,
     update_character_movement_velocity_while_in_air_phase_system,
-    update_character_movement_velocity_while_on_stage_system,
-    update_character_on_stage_body_position_system, update_character_on_stage_system,
-    CharacterBodyTagComponent, CharacterBundle, CharacterFallPhaseMovementParametersComponent,
+    update_character_movement_velocity_while_on_stage_system, CharacterBodyTagComponent,
+    CharacterBundle, CharacterFallPhaseMovementParametersComponent,
     CharacterMovementParametersComponent, CharacterMovementVariablesComponent,
     CharacterPlayerInputComponent, CharacterRotationFromGlobalToCharacterParametersComponent,
     CharacterTagComponent,
@@ -65,6 +68,94 @@ use std::{f32::consts::PI, time::Duration};
 mod character;
 mod math;
 mod player;
+
+/// resource for the next zone
+#[derive(Resource)]
+struct NextZoneResource {
+    /// all asset handle for the zone
+    /// nb, includes the main gltf asset
+    asset_handles: Vec<UntypedHandle>,
+
+    /// asset handle for the main gltf asset
+    main_gltf_asset_handle: Handle<Gltf>,
+
+    /// flag for
+    did_spawn_main_gltf: bool,
+}
+
+/// state of the app
+#[derive(States, Debug, Clone, PartialEq, Eq, Hash, Default)]
+enum AppState {
+    #[default]
+    None,
+    LoadNextZone,
+    SetupNextZone,
+    Play,
+}
+
+/// system to transition [AppState] from [AppState::LoadNextZone] to [AppState::SetupNextZone] when all assets of next zone are loaded.
+fn transition_app_state_from_load_next_zone_to_setup_next_zone_when_next_zone_assets_loaded_system(
+    asset_server: Res<AssetServer>,
+    next_zone: Res<NextZoneResource>,
+    mut next_app_state: ResMut<NextState<AppState>>,
+) {
+    // panics when any asset is unloaded
+    let all_loaded = next_zone
+        .asset_handles
+        .iter()
+        .map(|asset_handle| asset_server.get_load_state(asset_handle.id()))
+        .all(|f| f.unwrap() == LoadState::Loaded);
+
+    if !all_loaded {
+        return;
+    }
+
+    // TODO error when not loaded
+
+    next_app_state.set(AppState::SetupNextZone);
+}
+
+/// system to transition [AppState] from [AppState::SetupNextZone] to [AppState::Play].
+fn transition_app_state_from_setup_next_zone_to_play_when_zone_spawned_system(
+    mut commands: Commands,
+    next_zone: Res<NextZoneResource>,
+    mut next_app_state: ResMut<NextState<AppState>>,
+) {
+    if !next_zone.did_spawn_main_gltf {
+        return;
+    }
+
+    commands.remove_resource::<NextZoneResource>();
+    next_app_state.set(AppState::Play);
+}
+
+/// system to spawn main gltf asset of next zone
+fn spawn_scene_using_next_zone_resource_system(
+    mut commands: Commands,
+    mut zone_loading_resource: ResMut<NextZoneResource>,
+    gltf_assets: Res<Assets<Gltf>>,
+) {
+    if zone_loading_resource.did_spawn_main_gltf {
+        return;
+    }
+
+    println!("spawn_scene_using_next_zone_resource_system");
+
+    let main_zone_asset_handle = zone_loading_resource.main_gltf_asset_handle.clone();
+
+    // if the GLTF has loaded, we can navigate its contents
+    if let Some(gltf) = gltf_assets.get(&main_zone_asset_handle) {
+        // spawn the first scene in the file
+        commands.spawn(SceneBundle {
+            scene: gltf.scenes[0].clone(),
+            ..Default::default()
+        });
+
+        zone_loading_resource.did_spawn_main_gltf = true;
+    } else {
+        panic!("asset missing {}", main_zone_asset_handle.id());
+    }
+}
 
 fn update_character_rotation_from_player_to_character_system(
     mut character_query: Query<
@@ -184,7 +275,7 @@ fn draw_character_transform_gizmos_system(
 
 fn draw_character_rotation_from_global_to_character_gizmos_system(
     mut gizmos: Gizmos,
-    player: Query<&Transform, With<PlayerTagComponent>>,
+    player_query: Query<&Transform, With<PlayerTagComponent>>,
     character_query: Query<
         (
             &Transform,
@@ -193,7 +284,7 @@ fn draw_character_rotation_from_global_to_character_gizmos_system(
         With<CharacterTagComponent>,
     >,
 ) {
-    let player = player.single();
+    let player = player_query.single();
     let character = character_query.single();
     gizmos.arrow(
         character.0.translation,
@@ -294,12 +385,28 @@ fn draw_character_horizontal_movement_velocity_gizmos_system(
 
 // region startup
 
+fn setup_next_zone_to_greenhillzone_system(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    mut next_app_state: ResMut<NextState<AppState>>,
+) {
+    let asset_handle = asset_server.load::<Gltf>("zone/greenhillzone.glb");
+
+    commands.insert_resource(NextZoneResource {
+        asset_handles: Vec::from([asset_handle.clone().untyped()]),
+        main_gltf_asset_handle: asset_handle,
+        did_spawn_main_gltf: false,
+    });
+
+    next_app_state.set(AppState::LoadNextZone);
+}
+
 fn spawn_props_system(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    // stage, floor
+    // zone, floor
     commands.spawn((
         PbrBundle {
             mesh: meshes.add(Cuboid::new(25.0, 1.0, 25.0)),
@@ -314,7 +421,7 @@ fn spawn_props_system(
         ),
     ));
 
-    // stage, ramp
+    // zone, ramp
     commands.spawn((
         PbrBundle {
             mesh: meshes.add(Cuboid::new(5.0, 5.0, 5.0)),
@@ -330,7 +437,7 @@ fn spawn_props_system(
         ),
     ));
 
-    // stage, obstacle
+    // zone, obstacle
     commands.spawn((
         PbrBundle {
             mesh: meshes.add(Cuboid::new(1.0, 1.0, 1.0)),
@@ -509,6 +616,7 @@ const DEFAULT_TIMESTEP: Duration = Duration::from_micros(15625);
 fn main() {
     let mut app = App::new();
 
+    app.insert_state(AppState::None);
     app.insert_resource(RapierConfiguration {
         timestep_mode: TimestepMode::Fixed {
             dt: DEFAULT_TIMESTEP.as_secs_f32(),
@@ -525,7 +633,20 @@ fn main() {
 
     app.add_systems(Startup, spawn_character_system)
         .add_systems(Startup, spawn_player_system)
-        .add_systems(Startup, spawn_props_system);
+        .add_systems(Startup, spawn_props_system)
+        .add_systems(Startup, setup_next_zone_to_greenhillzone_system);
+
+    app.add_systems(Update, transition_app_state_from_load_next_zone_to_setup_next_zone_when_next_zone_assets_loaded_system.run_if(in_state(AppState::LoadNextZone)));
+    app.add_systems(
+        Update,
+        transition_app_state_from_setup_next_zone_to_play_when_zone_spawned_system
+            .run_if(in_state(AppState::SetupNextZone)),
+    );
+
+    app.add_systems(
+        Update,
+        spawn_scene_using_next_zone_resource_system.run_if(in_state(AppState::SetupNextZone)),
+    );
 
     app.add_systems(
         FixedPreUpdate,
@@ -545,7 +666,7 @@ fn main() {
     app.add_systems(
         FixedPreUpdate,
         (
-            update_character_on_stage_system,
+            update_character_body_try_jump_while_on_stage_system,
             update_character_body_velocity_while_on_stage_using_movement_velocity_system,
             update_character_body_velocity_while_in_air_using_movement_velocity_system,
         )
@@ -556,8 +677,8 @@ fn main() {
     app.add_systems(
         FixedPreUpdate,
         (
-            update_character_on_stage_body_position_system,
-            update_character_in_air_body_position_system,
+            update_character_body_while_on_stage_system,
+            update_character_body_try_land_while_in_air_system,
         )
             .before(PhysicsSet::StepSimulation),
     );
