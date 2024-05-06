@@ -7,7 +7,7 @@ use bevy::{
         system::{Commands, Query, Res},
     },
     hierarchy::Children,
-    math::{Quat, Vec2, Vec3, Vec3Swizzles},
+    math::{Affine3A, Quat, Vec2, Vec3, Vec3Swizzles},
     render::view::InheritedVisibility,
     transform::components::{GlobalTransform, Transform},
 };
@@ -29,16 +29,15 @@ pub struct CharacterBodyTagComponent;
 
 /// Character component.
 #[derive(Component)]
-pub struct CharacterRotationFromGlobalToCharacterParametersComponent {
-    /// rotation from camera up to character up
-    pub rotation_from_camera_to_character_quat: Quat,
+pub struct CharacterTransformationFromPlayerToCameraVariablesComponent {
+    /// affine transformation matrix from local screen space to global space on the character horizontal plane.
+    pub transformation_from_screen_to_global_on_character_horizontal: Affine3A,
 }
 
 /// component with input from player for character.
 #[derive(Component)]
 pub struct CharacterPlayerInputComponent {
-    /// movement input transformed onto the character's local up.
-    /// transformed using rotation instead of vector projection.
+    /// movement in global space
     pub global_movement_player_input: Vec3,
 
     pub do_activate_jump_input: bool,
@@ -88,7 +87,7 @@ pub struct CharacterBundle {
     pub transform: Transform,
     pub inherited_visibility: InheritedVisibility,
     pub rotation_from_player_to_character:
-        CharacterRotationFromGlobalToCharacterParametersComponent,
+        CharacterTransformationFromPlayerToCameraVariablesComponent,
     pub player_input: CharacterPlayerInputComponent,
     pub fall_phase_movement_parameters: CharacterFallPhaseMovementParametersComponent,
     pub movement_variables: CharacterMovementVariablesComponent,
@@ -201,7 +200,7 @@ pub fn update_character_body_velocity_while_on_stage_using_movement_velocity_sys
         (
             &Transform,
             &CharacterPlayerInputComponent,
-            &CharacterRotationFromGlobalToCharacterParametersComponent,
+            &CharacterTransformationFromPlayerToCameraVariablesComponent,
             &CharacterMovementVariablesComponent,
             &mut Velocity,
         ),
@@ -236,7 +235,7 @@ pub fn update_character_body_velocity_while_in_air_using_movement_velocity_syste
         (
             &Transform,
             &CharacterPlayerInputComponent,
-            &CharacterRotationFromGlobalToCharacterParametersComponent,
+            &CharacterTransformationFromPlayerToCameraVariablesComponent,
             &CharacterMovementVariablesComponent,
             &mut Velocity,
         ),
