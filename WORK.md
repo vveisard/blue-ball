@@ -1,16 +1,8 @@
-# STORY mesh movement
+# STORY refactor transforms to use affine transformation instead of quaternion
 
-## RESOURCES
+---
 
-https://docs.rs/bevy_rapier3d/latest/bevy_rapier3d/geometry/struct.Collider.html#method.from_bevy_mesh
-https://docs.rs/bevy_rapier3d/latest/bevy_rapier3d/geometry/struct.Collider.html#method.trimesh
-https://www.models-resource.com/dreamcast/sonicadventure2/model/16287/
-
-## ACCEPTANCE
-
-- I can move freely move around the stage mesh
-
-## TODO add a physics mesh
+# STORY fix performance while in air
 
 ---
 
