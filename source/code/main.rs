@@ -564,7 +564,7 @@ fn spawn_character_system(
                     local: Transform::from_xyz(0.0, 1.0, 0.0), // TOOD use height
                     ..default()
                 },
-                Collider::ball(0.25),
+                Collider::capsule_y(0.5, 0.25),
                 CollisionGroups::new(
                     Group::from_bits(0b0100).unwrap(),
                     Group::from_bits(0b0110).unwrap(),
