@@ -3,8 +3,8 @@ use crate::{
         CharacterPlayerInputComponent, CharacterTransformationFromPlayerToCameraVariablesComponent,
     },
     math::{
-        CylinderCoordinates3d, CylinderCoordinates3dSmoothDampTransitionVariables,
-        SmoothDampTransitionVariables,
+        CylinderCoordinates3dSmoothDampTransitionVariables, CylindricalCoordinates,
+        FromCylindrical, SmoothDampTransitionVariables,
     },
 };
 use bevy::{
@@ -20,7 +20,7 @@ use bevy::{
         mouse::{MouseButton, MouseMotion, MouseWheel},
         ButtonInput,
     },
-    math::{Quat, Vec2, Vec3},
+    math::{primitives::Direction3d, Quat, Vec2, Vec3},
     render::color::Color,
     time::Time,
     transform::components::Transform,
@@ -38,7 +38,7 @@ pub struct PlayerTagComponent;
 #[derive(Component)]
 pub struct PlayerCameraTransitionStateVariablesComponent {
     pub transition_cylinder_coordinates: CylinderCoordinates3dSmoothDampTransitionVariables,
-    pub focus: SmoothDampTransitionVariables<Vec3>,
+    pub lookat: SmoothDampTransitionVariables<Vec3>,
     pub roll: SmoothDampTransitionVariables<f32>,
 }
 
@@ -46,9 +46,9 @@ pub struct PlayerCameraTransitionStateVariablesComponent {
 
 pub struct PlayerCameraState {
     /// translation with respect to the character
-    pub local_cylinder_coordinates: CylinderCoordinates3d,
+    pub local_cylinder_coordinates: CylindricalCoordinates,
     // point to lookat
-    pub focus: Vec3,
+    pub lookat: Vec3,
 
     pub roll: f32,
 }
@@ -112,7 +112,7 @@ pub fn update_player_camera_desired_state_coordinates_using_input_system(
     player.1.camera_state.local_cylinder_coordinates.distance -= zoom_input;
 
     player.1.camera_state.local_cylinder_coordinates.rotation += input.x;
-    player.1.camera_state.focus.y -= input.y;
+    player.1.camera_state.lookat.y -= input.y;
     player.1.camera_state.local_cylinder_coordinates.height -= input.y * 0.5;
 }
 
@@ -289,7 +289,7 @@ pub fn transition_player_camera_state_roll_system(
     }
 }
 
-pub fn transition_player_camera_state_focus_system(
+pub fn transition_player_camera_state_lookat_system(
     time: Res<Time>,
     mut player_camera_query: Query<
         (
@@ -307,17 +307,17 @@ pub fn transition_player_camera_state_focus_system(
     ) in &mut player_camera_query
     {
         let smooth_damp_result = Vec3::smooth_damp(
-            player_camera_current_state.camera_state.focus,
-            player_camera_desired_state.camera_state.focus,
-            player_camera_transition_state_variables.focus.velocity,
+            player_camera_current_state.camera_state.lookat,
+            player_camera_desired_state.camera_state.lookat,
+            player_camera_transition_state_variables.lookat.velocity,
             0.1,
             f32::INFINITY,
             time.delta().as_secs_f32(),
         );
 
-        player_camera_current_state.camera_state.focus = smooth_damp_result.0;
+        player_camera_current_state.camera_state.lookat = smooth_damp_result.0;
 
-        player_camera_transition_state_variables.focus.velocity = smooth_damp_result.1;
+        player_camera_transition_state_variables.lookat.velocity = smooth_damp_result.1;
     }
 }
 
@@ -334,21 +334,13 @@ pub fn update_player_camera_transform_using_state_system(
     let character = character_query.single_mut();
     let mut player = player_query.single_mut();
 
-    let relative_x_translation = player.1.camera_state.local_cylinder_coordinates.distance
-        * f32::cos(player.1.camera_state.local_cylinder_coordinates.rotation);
-    let relative_z_translation = player.1.camera_state.local_cylinder_coordinates.distance
-        * f32::sin(player.1.camera_state.local_cylinder_coordinates.rotation);
-    let relative_y_translation = player.1.camera_state.local_cylinder_coordinates.height;
+    let local_translation =
+        Vec3::from_cylindrical(&player.1.camera_state.local_cylinder_coordinates);
 
-    player.0.translation = character.0.translation
-        + Vec3::new(
-            relative_x_translation,
-            relative_y_translation,
-            relative_z_translation,
-        );
+    player.0.translation = character.0.translation + local_translation;
 
     player.0.look_at(
-        character.0.translation + player.1.camera_state.focus,
+        character.0.translation + player.1.camera_state.lookat,
         Vec3::Y,
     );
 
@@ -366,7 +358,7 @@ pub fn reset_player_roll_on_mouse_input_system(
     player_query.single_mut().0.camera_state.roll = 0.0;
 }
 
-pub fn draw_player_camera_focus_gizmos_system(
+pub fn draw_player_camera_lookat_gizmos_system(
     mut gizmos: Gizmos,
     player_query: Query<
         (
@@ -388,16 +380,54 @@ pub fn draw_player_camera_focus_gizmos_system(
     let player = player_query.single();
 
     gizmos.sphere(
-        character.0.translation + player.0.camera_state.focus,
+        character.0.translation + player.0.camera_state.lookat,
         Quat::IDENTITY,
         0.5,
         Color::WHITE,
     );
 
     gizmos.sphere(
-        character.0.translation + player.1.camera_state.focus,
+        character.0.translation + player.1.camera_state.lookat,
         Quat::IDENTITY,
         0.5,
         Color::YELLOW,
+    );
+}
+
+pub fn draw_player_camera_gizmos_system(
+    mut gizmos: Gizmos,
+    player_query: Query<(&PlayerCameraCurrentStateComponent,), With<PlayerTagComponent>>,
+    character_query: Query<
+        (
+            &Transform,
+            &CharacterPlayerInputComponent,
+            &CharacterTransformationFromPlayerToCameraVariablesComponent,
+        ),
+        With<CharacterTagComponent>,
+    >,
+) {
+    let character = character_query.single();
+    let player = player_query.single();
+
+    let local_translation =
+        Vec3::from_cylindrical(&player.0.camera_state.local_cylinder_coordinates);
+
+    gizmos.circle(
+        character.0.translation,
+        Direction3d::Y,
+        player.0.camera_state.local_cylinder_coordinates.distance,
+        Color::BLACK,
+    );
+
+    gizmos.line(
+        character.0.translation,
+        character.0.translation + Vec3::new(0.0, local_translation.y, 0.0),
+        Color::BLACK,
+    );
+
+    gizmos.line(
+        character.0.translation,
+        character.0.translation + Vec3::new(local_translation.x, 0.0, local_translation.z),
+        Color::BLACK,
     );
 }

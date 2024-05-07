@@ -1,12 +1,55 @@
 use bevy::math::{Vec2, Vec3};
 
-pub struct CylinderCoordinates3d {
+pub struct CylindricalCoordinates {
     // distance to the center
     pub distance: f32,
     // rotation about the center
     pub rotation: f32,
     // height about the cylinder
     pub height: f32,
+}
+
+impl CylindricalCoordinates {
+    pub fn new(distance: f32, rotation: f32, height: f32) -> Self {
+        return CylindricalCoordinates {
+            distance,
+            rotation,
+            height,
+        };
+    }
+}
+
+pub trait FromCylindrical {
+    fn from_cylindrical(cylindrical: &CylindricalCoordinates) -> Self;
+}
+
+pub trait FromVec3 {
+    fn from_vec3(vec3: &Vec3) -> Self;
+}
+
+impl FromCylindrical for Vec3 {
+    fn from_cylindrical(c: &CylindricalCoordinates) -> Self {
+        let relative_x_translation = c.distance * f32::cos(c.rotation);
+        let relative_z_translation = c.distance * f32::sin(c.rotation);
+        let relative_y_translation = c.height;
+
+        return Vec3::new(
+            relative_x_translation,
+            relative_y_translation,
+            relative_z_translation,
+        );
+    }
+}
+
+impl FromVec3 for CylindricalCoordinates {
+    #[inline]
+    fn from_vec3(v: &Vec3) -> Self {
+        let distance = f32::sqrt(v.x * v.x + v.z * v.z);
+        let height = v.y;
+        let rotation = f32::atan2(v.x, v.z); // angle of vector
+
+        return CylindricalCoordinates::new(distance, rotation, height);
+    }
 }
 
 // TODO move smooth damp to own module

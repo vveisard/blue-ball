@@ -1,21 +1,3 @@
-# STORY render camera gizmos
-
-## ACCEPTANCE
-
-I will know this is complete when:
-
-- I can see the radius line the circle towards the camera
-- I can see the height line on the edge up towards the camera
-- I can see the circle around the center
-
-## DESIGN
-
-- middle ring (with current radius) of the cylinder
-- current ring of the cylinder
-- desired ring of the cylinder
-
----
-
 # STORY use transforms for camera cylinder
 
 ## DESIGN
