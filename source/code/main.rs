@@ -10,7 +10,7 @@ use bevy::{
         system::{Commands, Query, Res, ResMut, Resource},
     },
     gizmos::gizmos::Gizmos,
-    gltf::Gltf,
+    gltf::{Gltf, GltfMesh},
     hierarchy::BuildChildren,
     input::{keyboard::KeyCode, ButtonInput},
     math::{
@@ -32,7 +32,7 @@ use bevy::{
 };
 use bevy_rapier3d::{
     dynamics::{Ccd, Damping, GravityScale, LockedAxes, RigidBody, Sleeping, Velocity},
-    geometry::{Collider, CollisionGroups, Friction, Group},
+    geometry::{Collider, CollisionGroups, ComputedColliderShape, Friction, Group},
     plugin::{NoUserData, PhysicsSet, RapierConfiguration, RapierPhysicsPlugin, TimestepMode},
     render::RapierDebugRenderPlugin,
 };
@@ -136,6 +136,8 @@ fn spawn_scene_using_next_zone_resource_system(
     mut commands: Commands,
     mut zone_loading_resource: ResMut<NextZoneResource>,
     gltf_assets: Res<Assets<Gltf>>,
+    gltf_mesh_assets: Res<Assets<GltfMesh>>,
+    mesh_assets: Res<Assets<Mesh>>,
 ) {
     if zone_loading_resource.did_spawn_main_gltf {
         return;
@@ -146,17 +148,30 @@ fn spawn_scene_using_next_zone_resource_system(
     let main_zone_asset_handle = zone_loading_resource.main_gltf_asset_handle.clone();
 
     // if the GLTF has loaded, we can navigate its contents
-    if let Some(gltf) = gltf_assets.get(&main_zone_asset_handle) {
-        // spawn the first scene in the file
-        commands.spawn(SceneBundle {
-            scene: gltf.scenes[0].clone(),
-            ..Default::default()
+    let gltf = gltf_assets.get(&main_zone_asset_handle).unwrap();
+    let gltf_mesh = gltf_mesh_assets.get(&gltf.meshes[0]).unwrap();
+    let mesh_handle = &gltf_mesh.primitives[0].mesh;
+    let mesh = mesh_assets.get(mesh_handle.id()).unwrap();
+
+    commands
+        .spawn(TransformBundle {
+            local: Transform::from_xyz(0.0, 0.0, 0.0),
+            global: GlobalTransform::default(),
+        })
+        .with_children(|parent_commands| {
+            // graphics
+            parent_commands.spawn(SceneBundle {
+                scene: gltf.scenes[0].clone(),
+                ..Default::default()
+            });
+
+            // physics
+            let collider =
+                Collider::from_bevy_mesh(&mesh, &ComputedColliderShape::TriMesh).unwrap();
+            parent_commands.spawn(collider);
         });
 
-        zone_loading_resource.did_spawn_main_gltf = true;
-    } else {
-        panic!("asset missing {}", main_zone_asset_handle.id());
-    }
+    zone_loading_resource.did_spawn_main_gltf = true;
 }
 
 fn update_character_rotation_from_player_to_character_system(
@@ -387,12 +402,12 @@ fn draw_character_horizontal_movement_velocity_gizmos_system(
 
 // region startup
 
-fn setup_next_zone_to_greenhillzone_system(
+fn setup_next_zone_to_suzanne_system(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut next_app_state: ResMut<NextState<AppState>>,
 ) {
-    let asset_handle = asset_server.load::<Gltf>("zone/greenhillzone.glb");
+    let asset_handle = asset_server.load::<Gltf>("zone/suzanne.glb");
 
     commands.insert_resource(NextZoneResource {
         asset_handles: Vec::from([asset_handle.clone().untyped()]),
@@ -644,7 +659,7 @@ fn main() {
         RapierDebugRenderPlugin::default(),
     ));
 
-    app.add_systems(Startup, setup_next_zone_to_greenhillzone_system);
+    app.add_systems(Startup, setup_next_zone_to_suzanne_system);
 
     app.add_systems(Update, transition_app_state_from_load_next_zone_to_setup_next_zone_when_next_zone_assets_loaded_system.run_if(in_state(AppState::LoadNextZone)));
     app.add_systems(
