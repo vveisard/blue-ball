@@ -15,7 +15,7 @@ use bevy::{
     input::{keyboard::KeyCode, ButtonInput},
     math::{
         primitives::{Capsule3d, Cuboid},
-        Quat, Vec2, Vec3,
+        Affine3A, Quat, Vec2, Vec3,
     },
     pbr::{
         light_consts, AlphaMode, AmbientLight, CascadeShadowConfigBuilder, DirectionalLight,
@@ -47,8 +47,8 @@ use character::{
     update_character_movement_velocity_while_on_stage_system, CharacterBodyTagComponent,
     CharacterBundle, CharacterFallPhaseMovementParametersComponent,
     CharacterMovementParametersComponent, CharacterMovementVariablesComponent,
-    CharacterPlayerInputComponent, CharacterRotationFromGlobalToCharacterParametersComponent,
-    CharacterTagComponent,
+    CharacterPlayerInputComponent, CharacterTagComponent,
+    CharacterTransformationFromPlayerToCameraVariablesComponent,
 };
 use math::{
     CylinderCoordinates3d, CylinderCoordinates3dSmoothDampTransitionVariables,
@@ -65,7 +65,7 @@ use player::{
     PlayerCameraCurrentStateComponent, PlayerCameraDesiredStateComponent, PlayerCameraState,
     PlayerCameraTransitionStateVariablesComponent, PlayerTagComponent,
 };
-use std::{f32::consts::PI, time::Duration};
+use std::{f32::consts::PI, ops::Mul, time::Duration};
 
 mod character;
 mod math;
@@ -178,36 +178,41 @@ fn update_character_rotation_from_player_to_character_system(
     mut character_query: Query<
         (
             &Transform,
-            &mut CharacterRotationFromGlobalToCharacterParametersComponent,
+            &mut CharacterTransformationFromPlayerToCameraVariablesComponent,
         ),
         With<CharacterTagComponent>,
     >,
-    player_query: Query<&Transform, With<PlayerTagComponent>>,
+    player_query: Query<(&Transform, &GlobalTransform), With<PlayerTagComponent>>,
 ) {
     let mut character = character_query.single_mut();
     let player = player_query.single();
-    let camera_up = player.up();
     let character_up = character.0.up();
+    let player_up = player.0.up();
 
-    character.1.rotation_from_camera_to_character_quat =
-        Quat::from_rotation_arc(*camera_up, *character_up);
+    let rotation_from_player_up_to_character_up =
+        Quat::from_rotation_arc(*player_up, *character_up);
+
+    let next_transformation = Affine3A::mul(
+        Affine3A::from_quat(rotation_from_player_up_to_character_up),
+        player.1.affine(),
+    );
+
+    character
+        .1
+        .transformation_from_screen_to_global_on_character_horizontal = next_transformation;
 }
 
 fn update_character_movement_player_input_system(
     keyboard_input: Res<ButtonInput<KeyCode>>,
-    player_query: Query<(&Transform, &GlobalTransform), With<PlayerTagComponent>>,
     mut character_query: Query<
         (
-            &CharacterRotationFromGlobalToCharacterParametersComponent,
+            &CharacterTransformationFromPlayerToCameraVariablesComponent,
             &mut CharacterPlayerInputComponent,
         ),
         With<CharacterTagComponent>,
     >,
 ) {
     let mut character = character_query.single_mut();
-    let player = player_query.single();
-
-    let player_global_transform = player.1;
 
     let mut local_input = Vec3::ZERO;
     if keyboard_input.pressed(KeyCode::KeyW) {
@@ -226,17 +231,14 @@ fn update_character_movement_player_input_system(
         local_input.x -= 1.0;
     }
 
-    // transform input from camera space to global space
-    let global_movement_input = player_global_transform
-        .affine()
-        .transform_vector3(local_input);
-
-    // println!("{}, {}", local_input, global_input);
-
-    character.1.global_movement_player_input = Quat::mul_vec3(
-        character.0.rotation_from_camera_to_character_quat,
-        global_movement_input,
+    let next_input = Affine3A::transform_vector3(
+        &character
+            .0
+            .transformation_from_screen_to_global_on_character_horizontal,
+        local_input,
     );
+
+    character.1.global_movement_player_input = next_input;
 }
 
 fn update_character_jump_player_input_system(
@@ -264,7 +266,7 @@ fn draw_character_transform_gizmos_system(
         (
             &Transform,
             &CharacterPlayerInputComponent,
-            &CharacterRotationFromGlobalToCharacterParametersComponent,
+            &CharacterTransformationFromPlayerToCameraVariablesComponent,
         ),
         With<CharacterTagComponent>,
     >,
@@ -282,43 +284,42 @@ fn draw_character_transform_gizmos_system(
         character.0.translation + *character.0.forward(),
         Color::BLUE.with_a(0.5),
     );
-
-    // gizmos.arrow(
-    //     character.0.translation,
-    //     character.0.translation + *character.0.up(),
-    //     Color::GREEN.with_a(0.5),
-    // );
 }
 
 fn draw_character_rotation_from_global_to_character_gizmos_system(
     mut gizmos: Gizmos,
-    player_query: Query<&Transform, With<PlayerTagComponent>>,
     character_query: Query<
         (
             &Transform,
-            &CharacterRotationFromGlobalToCharacterParametersComponent,
+            &CharacterTransformationFromPlayerToCameraVariablesComponent,
         ),
         With<CharacterTagComponent>,
     >,
 ) {
-    let player = player_query.single();
     let character = character_query.single();
+
+    let character_forward_input = Affine3A::transform_vector3(
+        &character
+            .1
+            .transformation_from_screen_to_global_on_character_horizontal,
+        Vec3::NEG_Z,
+    );
+
+    let character_right_input = Affine3A::transform_vector3(
+        &character
+            .1
+            .transformation_from_screen_to_global_on_character_horizontal,
+        Vec3::X,
+    );
+
     gizmos.arrow(
         character.0.translation,
-        character.0.translation
-            + Quat::mul_vec3(
-                character.1.rotation_from_camera_to_character_quat,
-                *player.forward(),
-            ),
+        character.0.translation + character_forward_input,
         Color::rgb(0.0, 1.0, 1.0),
     );
     gizmos.arrow(
         character.0.translation,
-        character.0.translation
-            + Quat::mul_vec3(
-                character.1.rotation_from_camera_to_character_quat,
-                *player.right(),
-            ),
+        character.0.translation + character_right_input,
         Color::rgb(1.0, 0.0, 1.0),
     );
 }
@@ -510,8 +511,9 @@ fn spawn_character_system(
                 transform: Transform::from_xyz(0.0, 100.0, 0.0),
                 inherited_visibility: InheritedVisibility::default(),
                 rotation_from_player_to_character:
-                    CharacterRotationFromGlobalToCharacterParametersComponent {
-                        rotation_from_camera_to_character_quat: Quat::IDENTITY,
+                    CharacterTransformationFromPlayerToCameraVariablesComponent {
+                        transformation_from_screen_to_global_on_character_horizontal:
+                            Affine3A::default(),
                     },
                 player_input: CharacterPlayerInputComponent {
                     global_movement_player_input: Vec3::ZERO,
@@ -678,18 +680,19 @@ fn main() {
     app.add_systems(
         FixedPreUpdate,
         (
+            update_character_body_try_jump_while_on_stage_system, // leave stage before calculating horizontal velocity
             update_character_horizontal_movement_velocity_system,
             update_character_movement_velocity_while_on_stage_system,
             update_character_movement_velocity_while_in_air_phase_system,
         )
             .in_set(CharacterPhaseMovementVelocitySystemSet)
+            .chain()
             .run_if(in_state(AppState::Play)),
     );
 
     app.add_systems(
         FixedPreUpdate,
         (
-            update_character_body_try_jump_while_on_stage_system,
             update_character_body_velocity_while_on_stage_using_movement_velocity_system,
             update_character_body_velocity_while_in_air_using_movement_velocity_system,
         )

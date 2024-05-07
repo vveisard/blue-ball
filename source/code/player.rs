@@ -1,6 +1,6 @@
 use crate::{
     character::{
-        CharacterPlayerInputComponent, CharacterRotationFromGlobalToCharacterParametersComponent,
+        CharacterPlayerInputComponent, CharacterTransformationFromPlayerToCameraVariablesComponent,
     },
     math::{
         CylinderCoordinates3d, CylinderCoordinates3dSmoothDampTransitionVariables,
@@ -379,7 +379,7 @@ pub fn draw_player_camera_focus_gizmos_system(
         (
             &Transform,
             &CharacterPlayerInputComponent,
-            &CharacterRotationFromGlobalToCharacterParametersComponent,
+            &CharacterTransformationFromPlayerToCameraVariablesComponent,
         ),
         With<CharacterTagComponent>,
     >,

@@ -7,7 +7,7 @@ use bevy::{
         system::{Commands, Query, Res},
     },
     hierarchy::Children,
-    math::{Quat, Vec2, Vec3, Vec3Swizzles},
+    math::{Affine3A, Quat, Vec2, Vec3, Vec3Swizzles},
     render::view::InheritedVisibility,
     transform::components::{GlobalTransform, Transform},
 };
@@ -29,9 +29,9 @@ pub struct CharacterBodyTagComponent;
 
 /// Character component.
 #[derive(Component)]
-pub struct CharacterRotationFromGlobalToCharacterParametersComponent {
-    /// rotation from camera up to character up
-    pub rotation_from_camera_to_character_quat: Quat,
+pub struct CharacterTransformationFromPlayerToCameraVariablesComponent {
+    /// affine transformation matrix from local screen space to global space on the horizontal plane of this character.
+    pub transformation_from_screen_to_global_on_character_horizontal: Affine3A,
 }
 
 /// component with input from player for character.
@@ -88,7 +88,7 @@ pub struct CharacterBundle {
     pub transform: Transform,
     pub inherited_visibility: InheritedVisibility,
     pub rotation_from_player_to_character:
-        CharacterRotationFromGlobalToCharacterParametersComponent,
+        CharacterTransformationFromPlayerToCameraVariablesComponent,
     pub player_input: CharacterPlayerInputComponent,
     pub fall_phase_movement_parameters: CharacterFallPhaseMovementParametersComponent,
     pub movement_variables: CharacterMovementVariablesComponent,
@@ -201,7 +201,7 @@ pub fn update_character_body_velocity_while_on_stage_using_movement_velocity_sys
         (
             &Transform,
             &CharacterPlayerInputComponent,
-            &CharacterRotationFromGlobalToCharacterParametersComponent,
+            &CharacterTransformationFromPlayerToCameraVariablesComponent,
             &CharacterMovementVariablesComponent,
             &mut Velocity,
         ),
@@ -236,7 +236,7 @@ pub fn update_character_body_velocity_while_in_air_using_movement_velocity_syste
         (
             &Transform,
             &CharacterPlayerInputComponent,
-            &CharacterRotationFromGlobalToCharacterParametersComponent,
+            &CharacterTransformationFromPlayerToCameraVariablesComponent,
             &CharacterMovementVariablesComponent,
             &mut Velocity,
         ),
@@ -467,6 +467,7 @@ pub fn update_character_body_try_land_while_in_air_system(
         )),
     ) {
         // snap to ground
+        // TODO set rotation directly
         let rotation: Quat = Quat::from_rotation_arc(*character.4.up(), ray_intersection.normal);
         character.4.rotation *= rotation;
         character.4.translation = ray_intersection.point;

@@ -1,4 +1,41 @@
-# STORY refactor transforms to use affine transformation instead of quaternion
+# STORY render camera gismos
+
+## DESIGN
+
+- middle ring (with current radius) of the cylinder
+- current ring of the cylinder
+- desired ring of the cylinder
+
+---
+
+# STORY use transforms for camera cylinder
+
+## DESIGN
+
+currently, the player camera uses cylindrical coordinates around the player
+
+instead, we would like the camera cylinder to have its own transform, and for the camera to be a child entity with its own transform
+
+---
+
+# STORY camera cylinder transform translation transition
+
+## DESIGN
+
+We want to transition the translation of the camera cylinder towards the player's translation
+this will use the transition system (desired state, etc)
+
+---
+
+# STORY camera cylinder rotation transition
+
+## DESIGN
+
+We want to transition the rotation of the camera cylinder towards the player's rotation
+ie, slowly transition the camera cylinder "up" from the current up to the character's up
+this will use the transition system (desired state, etc)
+
+---
 
 ---
 
@@ -21,17 +58,6 @@ Publish on itch.io under my personal account
 share on discord
 share on 4chan/vg/sthg/
 share with discord
-
----
-
-# STORY render camera height and rotation gizmos
-
-## DESIGN
-
-this is:
-
-- a line from the center of the cylinder to the camera
-- a line from the bottom of the cylinder to the camera
 
 ---
 
