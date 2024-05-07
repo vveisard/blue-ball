@@ -1,4 +1,12 @@
-# STORY render camera gismos
+# STORY render camera gizmos
+
+## ACCEPTANCE
+
+I will know this is complete when:
+
+- I can see the radius line the circle towards the camera
+- I can see the height line on the edge up towards the camera
+- I can see the circle around the center
 
 ## DESIGN
 
