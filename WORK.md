@@ -4,24 +4,33 @@
 
 currently, the player camera uses cylindrical coordinates around the player
 
-instead, we would like the camera cylinder to have its own transform, and for the camera to be a child entity with its own transform
+instead, we would like the camera cylinder body to be its own entity, and for the camera eyes to be a child entity with its own transform
+
+- entity:player
+  - entity:playerCameraBody
+    - entity:playerCameraEyes
+      - component:CylindricalTransformTranslationComponent {
+        translation: CylindricalCoordinates
+        }
+
+System which updates transfom.translation using CylindricalTransformTranslationComponent (before transform propogation?)
 
 ---
 
-# STORY camera cylinder transform translation transition
+# STORY camera cylinder body translation transition
 
 ## DESIGN
 
-We want to transition the translation of the camera cylinder towards the player's translation
+We want to transition the translation of the camera body towards the characters's translation
 this will use the transition system (desired state, etc)
 
 ---
 
-# STORY camera cylinder rotation transition
+# STORY camera cylinder body rotation transition
 
 ## DESIGN
 
-We want to transition the rotation of the camera cylinder towards the player's rotation
+We want to transition the rotation of the camera body towards the characters's rotation
 ie, slowly transition the camera cylinder "up" from the current up to the character's up
 this will use the transition system (desired state, etc)
 
