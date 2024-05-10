@@ -55,20 +55,21 @@ use math::{
     SmoothDampTransitionVariables,
 };
 use player::{
-    apply_player_camera_transform_using_current_state_system, draw_player_camera_gizmos_system,
-    draw_player_camera_lookat_gizmos_system,
-    set_player_camera_eyes_desired_state_height_and_lookat_using_input_system,
-    set_player_camera_eyes_desired_state_roll_on_mouse_input_system,
-    set_player_camera_eyes_desired_state_roll_using_input_system,
-    set_player_camera_origin_desired_state_translation_using_character_system,
-    transition_player_camera_eyes_current_state_distance_system,
-    transition_player_camera_eyes_current_state_height_system,
-    transition_player_camera_eyes_current_state_lookat_system,
-    transition_player_camera_eyes_current_state_roll_system,
-    transition_player_camera_eyes_current_state_rotation_system,
-    transition_player_camera_origin_current_state_system, PlayerBundle, PlayerCameraState,
-    PlayerCameraTransitionCurrentStateComponent, PlayerCameraTransitionDesiredStateComponent,
-    PlayerCameraTransitionVariablesComponent, PlayerTagComponent,
+    apply_player_camera_cylinder_transform_using_current_state_system,
+    draw_player_camera_cylinder_gizmos_system, draw_player_camera_cylinder_lookat_gizmos_system,
+    set_player_camera_cylinder_eyes_desired_state_height_and_lookat_using_input_system,
+    set_player_camera_cylinder_eyes_desired_state_roll_on_mouse_input_system,
+    set_player_camera_cylinder_eyes_desired_state_roll_using_input_system,
+    set_player_camera_cylinder_origin_desired_state_translation_using_character_system,
+    transition_player_camera_cylinder_eyes_current_state_distance_system,
+    transition_player_camera_cylinder_eyes_current_state_height_system,
+    transition_player_camera_cylinder_eyes_current_state_lookat_system,
+    transition_player_camera_cylinder_eyes_current_state_roll_system,
+    transition_player_camera_cylinder_eyes_current_state_rotation_system,
+    transition_player_camera_cylinder_origin_current_state_system, PlayerBundle,
+    PlayerCameraCylinderState, PlayerCameraCylinderTransitionCurrentStateComponent,
+    PlayerCameraCylinderTransitionDesiredStateComponent,
+    PlayerCameraCylinderTransitionVariablesComponent, PlayerTagComponent,
 };
 use std::{f32::consts::PI, ops::Mul, time::Duration};
 
@@ -586,44 +587,47 @@ fn spawn_player_system(mut commands: Commands) {
     commands.spawn((
         PlayerBundle {
             tag: PlayerTagComponent,
-            camera_transition_current_state: PlayerCameraTransitionCurrentStateComponent {
-                camera_state: PlayerCameraState {
-                    origin_translation: Vec3::default(),
-                    eyes_translation: CylindricalCoordinates {
-                        distance: 15.0,
-                        rotation: 0.0,
-                        height: 5.0,
+            camera_cylinder_transition_current_state:
+                PlayerCameraCylinderTransitionCurrentStateComponent {
+                    camera_state: PlayerCameraCylinderState {
+                        origin_translation: Vec3::default(),
+                        eyes_translation: CylindricalCoordinates {
+                            distance: 15.0,
+                            rotation: 0.0,
+                            height: 5.0,
+                        },
+                        eyes_lookat: Vec3::new(0.0, 4.0, 0.0),
+                        eyes_roll: 0.0,
                     },
-                    eyes_lookat: Vec3::new(0.0, 4.0, 0.0),
-                    eyes_roll: 0.0,
                 },
-            },
-            camera_transition_desired_state: PlayerCameraTransitionDesiredStateComponent {
-                camera_state: PlayerCameraState {
-                    origin_translation: Vec3::default(),
-                    eyes_translation: CylindricalCoordinates {
-                        distance: 15.0,
-                        rotation: 0.0,
-                        height: 5.0,
+            camera_cylinder_transition_desired_state:
+                PlayerCameraCylinderTransitionDesiredStateComponent {
+                    camera_state: PlayerCameraCylinderState {
+                        origin_translation: Vec3::default(),
+                        eyes_translation: CylindricalCoordinates {
+                            distance: 15.0,
+                            rotation: 0.0,
+                            height: 5.0,
+                        },
+                        eyes_lookat: Vec3::new(0.0, 4.0, 0.0),
+                        eyes_roll: 0.0,
                     },
-                    eyes_lookat: Vec3::new(0.0, 4.0, 0.0),
-                    eyes_roll: 0.0,
                 },
-            },
-            camera_transition_variables: PlayerCameraTransitionVariablesComponent {
-                origin_translation: SmoothDampTransitionVariables {
-                    velocity: Vec3::ZERO,
+            camera_cylinder_transition_variables:
+                PlayerCameraCylinderTransitionVariablesComponent {
+                    origin_translation: SmoothDampTransitionVariables {
+                        velocity: Vec3::ZERO,
+                    },
+                    eyes_translation: CylinderCoordinates3dSmoothDampTransitionVariables {
+                        distance: SmoothDampTransitionVariables { velocity: 0.0 },
+                        rotation: SmoothDampTransitionVariables { velocity: 0.0 },
+                        height: SmoothDampTransitionVariables { velocity: 0.0 },
+                    },
+                    eyes_lookat: SmoothDampTransitionVariables {
+                        velocity: Vec3::ZERO,
+                    },
+                    eyes_roll: SmoothDampTransitionVariables { velocity: 0.0 },
                 },
-                eyes_translation: CylinderCoordinates3dSmoothDampTransitionVariables {
-                    distance: SmoothDampTransitionVariables { velocity: 0.0 },
-                    rotation: SmoothDampTransitionVariables { velocity: 0.0 },
-                    height: SmoothDampTransitionVariables { velocity: 0.0 },
-                },
-                eyes_lookat: SmoothDampTransitionVariables {
-                    velocity: Vec3::ZERO,
-                },
-                eyes_roll: SmoothDampTransitionVariables { velocity: 0.0 },
-            },
         },
         Camera3dBundle {
             transform: Transform::from_xyz(0.0, 25., -25.)
@@ -722,23 +726,23 @@ fn main() {
 
     app.add_systems(
         Update,
-        (set_player_camera_eyes_desired_state_roll_using_input_system)
+        (set_player_camera_cylinder_eyes_desired_state_roll_using_input_system)
             .run_if(in_state(AppState::Play)),
     );
 
     app.add_systems(
         Update,
         (
-            set_player_camera_origin_desired_state_translation_using_character_system,
-            set_player_camera_eyes_desired_state_height_and_lookat_using_input_system,
-            set_player_camera_eyes_desired_state_roll_on_mouse_input_system,
-            transition_player_camera_origin_current_state_system,
-            transition_player_camera_eyes_current_state_distance_system,
-            transition_player_camera_eyes_current_state_height_system,
-            transition_player_camera_eyes_current_state_rotation_system,
-            transition_player_camera_eyes_current_state_roll_system,
-            transition_player_camera_eyes_current_state_lookat_system,
-            apply_player_camera_transform_using_current_state_system,
+            set_player_camera_cylinder_origin_desired_state_translation_using_character_system,
+            set_player_camera_cylinder_eyes_desired_state_height_and_lookat_using_input_system,
+            set_player_camera_cylinder_eyes_desired_state_roll_on_mouse_input_system,
+            transition_player_camera_cylinder_origin_current_state_system,
+            transition_player_camera_cylinder_eyes_current_state_distance_system,
+            transition_player_camera_cylinder_eyes_current_state_height_system,
+            transition_player_camera_cylinder_eyes_current_state_rotation_system,
+            transition_player_camera_cylinder_eyes_current_state_roll_system,
+            transition_player_camera_cylinder_eyes_current_state_lookat_system,
+            apply_player_camera_cylinder_transform_using_current_state_system,
             apply_character_movement_input_using_player_input_system,
             apply_character_jump_input_using_player_input_system,
         )
@@ -751,8 +755,8 @@ fn main() {
             draw_character_rotation_from_global_to_character_gizmos_system,
             draw_character_transform_gizmos_system,
             draw_character_input_gizmos_system,
-            draw_player_camera_lookat_gizmos_system,
-            draw_player_camera_gizmos_system,
+            draw_player_camera_cylinder_lookat_gizmos_system,
+            draw_player_camera_cylinder_gizmos_system,
             draw_character_body_velocity_gizmos_system,
             draw_character_horizontal_movement_velocity_gizmos_system,
             draw_character_vertical_movement_velocity_gizmos_system,

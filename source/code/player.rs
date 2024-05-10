@@ -34,9 +34,9 @@ pub struct PlayerTagComponent;
 
 /// cordinates to
 
-/// variables of transition for state of player camera.
+/// transition variables for "cylinder" behavior of player camera.
 #[derive(Component)]
-pub struct PlayerCameraTransitionVariablesComponent {
+pub struct PlayerCameraCylinderTransitionVariablesComponent {
     pub origin_translation: SmoothDampTransitionVariables<Vec3>,
     pub eyes_translation: CylinderCoordinates3dSmoothDampTransitionVariables,
     pub eyes_lookat: SmoothDampTransitionVariables<Vec3>,
@@ -45,7 +45,8 @@ pub struct PlayerCameraTransitionVariablesComponent {
 
 // TODO transition state parameters
 
-pub struct PlayerCameraState {
+// state for "cylinder" behavior of player camera
+pub struct PlayerCameraCylinderState {
     /// translation of origin, in world space.
     pub origin_translation: Vec3,
     /// translation of eyes, with respect to origin.
@@ -56,32 +57,34 @@ pub struct PlayerCameraState {
     pub eyes_roll: f32,
 }
 
-/// current state of player camera.
+/// current state for "cylinder" behavior for player camera.
 #[derive(Component)]
-pub struct PlayerCameraTransitionCurrentStateComponent {
-    pub camera_state: PlayerCameraState,
+pub struct PlayerCameraCylinderTransitionCurrentStateComponent {
+    pub camera_state: PlayerCameraCylinderState,
 }
 
-/// desired state of player camera.
+/// desired state for "cylinder" behavior for player camera.
 #[derive(Component)]
-pub struct PlayerCameraTransitionDesiredStateComponent {
-    pub camera_state: PlayerCameraState,
+pub struct PlayerCameraCylinderTransitionDesiredStateComponent {
+    pub camera_state: PlayerCameraCylinderState,
 }
 
 #[derive(Bundle)]
 pub struct PlayerBundle {
     pub tag: PlayerTagComponent,
-    pub camera_transition_current_state: PlayerCameraTransitionCurrentStateComponent,
-    pub camera_transition_desired_state: PlayerCameraTransitionDesiredStateComponent,
-    pub camera_transition_variables: PlayerCameraTransitionVariablesComponent,
+    pub camera_cylinder_transition_current_state:
+        PlayerCameraCylinderTransitionCurrentStateComponent,
+    pub camera_cylinder_transition_desired_state:
+        PlayerCameraCylinderTransitionDesiredStateComponent,
+    pub camera_cylinder_transition_variables: PlayerCameraCylinderTransitionVariablesComponent,
 }
 
 // REGION update transition desired state
 
 /// update desired translation for player camera origin.
-pub fn set_player_camera_origin_desired_state_translation_using_character_system(
+pub fn set_player_camera_cylinder_origin_desired_state_translation_using_character_system(
     mut player_query: Query<
-        (&mut PlayerCameraTransitionDesiredStateComponent,),
+        (&mut PlayerCameraCylinderTransitionDesiredStateComponent,),
         (With<PlayerTagComponent>,),
     >,
     character_query: Query<(&Transform,), (With<CharacterTagComponent>,)>,
@@ -93,10 +96,10 @@ pub fn set_player_camera_origin_desired_state_translation_using_character_system
 }
 
 /// update desired roll for player camera eyes.
-pub fn set_player_camera_eyes_desired_state_roll_using_input_system(
+pub fn set_player_camera_cylinder_eyes_desired_state_roll_using_input_system(
     mouse_button_input: Res<ButtonInput<MouseButton>>,
     mut player_query: Query<
-        (&mut PlayerCameraTransitionDesiredStateComponent,),
+        (&mut PlayerCameraCylinderTransitionDesiredStateComponent,),
         With<PlayerTagComponent>,
     >,
 ) {
@@ -112,13 +115,13 @@ pub fn set_player_camera_eyes_desired_state_roll_using_input_system(
 }
 
 /// update desired height and lookat for player camera eyes.
-pub fn set_player_camera_eyes_desired_state_height_and_lookat_using_input_system(
+pub fn set_player_camera_cylinder_eyes_desired_state_height_and_lookat_using_input_system(
     mut mouse_motion_events: EventReader<MouseMotion>,
     mut mouse_wheel_events: EventReader<MouseWheel>,
     mut player_query: Query<
         (
             &mut Transform,
-            &mut PlayerCameraTransitionDesiredStateComponent,
+            &mut PlayerCameraCylinderTransitionDesiredStateComponent,
         ),
         (With<PlayerTagComponent>, Without<CharacterTagComponent>),
     >,
@@ -143,10 +146,10 @@ pub fn set_player_camera_eyes_desired_state_height_and_lookat_using_input_system
     player.1.camera_state.eyes_translation.height -= input.y * 0.5;
 }
 
-pub fn set_player_camera_eyes_desired_state_roll_on_mouse_input_system(
+pub fn set_player_camera_cylinder_eyes_desired_state_roll_on_mouse_input_system(
     mouse_button_input: Res<ButtonInput<MouseButton>>,
     mut player_query: Query<
-        (&mut PlayerCameraTransitionDesiredStateComponent,),
+        (&mut PlayerCameraCylinderTransitionDesiredStateComponent,),
         With<PlayerTagComponent>,
     >,
 ) {
@@ -161,13 +164,13 @@ pub fn set_player_camera_eyes_desired_state_roll_on_mouse_input_system(
 
 // REGION transition current state systems
 
-pub fn transition_player_camera_origin_current_state_system(
+pub fn transition_player_camera_cylinder_origin_current_state_system(
     time: Res<Time>,
     mut player_query: Query<
         (
-            &PlayerCameraTransitionDesiredStateComponent,
-            &mut PlayerCameraTransitionVariablesComponent,
-            &mut PlayerCameraTransitionCurrentStateComponent,
+            &PlayerCameraCylinderTransitionDesiredStateComponent,
+            &mut PlayerCameraCylinderTransitionVariablesComponent,
+            &mut PlayerCameraCylinderTransitionCurrentStateComponent,
         ),
         (With<PlayerTagComponent>,),
     >,
@@ -198,13 +201,13 @@ pub fn transition_player_camera_origin_current_state_system(
 }
 
 /// transition player camera eyes current state towards desired state.
-pub fn transition_player_camera_eyes_current_state_rotation_system(
+pub fn transition_player_camera_cylinder_eyes_current_state_rotation_system(
     time: Res<Time>,
     mut player_query: Query<
         (
-            &PlayerCameraTransitionDesiredStateComponent,
-            &mut PlayerCameraTransitionVariablesComponent,
-            &mut PlayerCameraTransitionCurrentStateComponent,
+            &PlayerCameraCylinderTransitionDesiredStateComponent,
+            &mut PlayerCameraCylinderTransitionVariablesComponent,
+            &mut PlayerCameraCylinderTransitionCurrentStateComponent,
         ),
         (With<PlayerTagComponent>,),
     >,
@@ -246,13 +249,13 @@ pub fn transition_player_camera_eyes_current_state_rotation_system(
 }
 
 /// transition player camera eyes current state towards desired state.
-pub fn transition_player_camera_eyes_current_state_height_system(
+pub fn transition_player_camera_cylinder_eyes_current_state_height_system(
     time: Res<Time>,
     mut player_query: Query<
         (
-            &PlayerCameraTransitionDesiredStateComponent,
-            &mut PlayerCameraTransitionVariablesComponent,
-            &mut PlayerCameraTransitionCurrentStateComponent,
+            &PlayerCameraCylinderTransitionDesiredStateComponent,
+            &mut PlayerCameraCylinderTransitionVariablesComponent,
+            &mut PlayerCameraCylinderTransitionCurrentStateComponent,
         ),
         (With<PlayerTagComponent>,),
     >,
@@ -294,13 +297,13 @@ pub fn transition_player_camera_eyes_current_state_height_system(
 }
 
 /// transition player camera eyes current state towards desired state.
-pub fn transition_player_camera_eyes_current_state_distance_system(
+pub fn transition_player_camera_cylinder_eyes_current_state_distance_system(
     time: Res<Time>,
     mut player_query: Query<
         (
-            &PlayerCameraTransitionDesiredStateComponent,
-            &mut PlayerCameraTransitionVariablesComponent,
-            &mut PlayerCameraTransitionCurrentStateComponent,
+            &PlayerCameraCylinderTransitionDesiredStateComponent,
+            &mut PlayerCameraCylinderTransitionVariablesComponent,
+            &mut PlayerCameraCylinderTransitionCurrentStateComponent,
         ),
         (With<PlayerTagComponent>,),
     >,
@@ -342,13 +345,13 @@ pub fn transition_player_camera_eyes_current_state_distance_system(
 }
 
 /// transition player camera eyes current state towards desired state.
-pub fn transition_player_camera_eyes_current_state_roll_system(
+pub fn transition_player_camera_cylinder_eyes_current_state_roll_system(
     time: Res<Time>,
     mut player_query: Query<
         (
-            &PlayerCameraTransitionDesiredStateComponent,
-            &mut PlayerCameraTransitionVariablesComponent,
-            &mut PlayerCameraTransitionCurrentStateComponent,
+            &PlayerCameraCylinderTransitionDesiredStateComponent,
+            &mut PlayerCameraCylinderTransitionVariablesComponent,
+            &mut PlayerCameraCylinderTransitionCurrentStateComponent,
         ),
         (With<PlayerTagComponent>,),
     >,
@@ -375,13 +378,13 @@ pub fn transition_player_camera_eyes_current_state_roll_system(
 }
 
 /// transition player camera eyes current state towards desired state.
-pub fn transition_player_camera_eyes_current_state_lookat_system(
+pub fn transition_player_camera_cylinder_eyes_current_state_lookat_system(
     time: Res<Time>,
     mut player_query: Query<
         (
-            &PlayerCameraTransitionDesiredStateComponent,
-            &mut PlayerCameraTransitionVariablesComponent,
-            &mut PlayerCameraTransitionCurrentStateComponent,
+            &PlayerCameraCylinderTransitionDesiredStateComponent,
+            &mut PlayerCameraCylinderTransitionVariablesComponent,
+            &mut PlayerCameraCylinderTransitionCurrentStateComponent,
         ),
         (With<PlayerTagComponent>,),
     >,
@@ -416,9 +419,12 @@ pub fn transition_player_camera_eyes_current_state_lookat_system(
 // REGION update state (writeback to core components)
 
 /// apply player camera eyes transform using current state system.
-pub fn apply_player_camera_transform_using_current_state_system(
+pub fn apply_player_camera_cylinder_transform_using_current_state_system(
     mut player_query: Query<
-        (&PlayerCameraTransitionCurrentStateComponent, &mut Transform),
+        (
+            &PlayerCameraCylinderTransitionCurrentStateComponent,
+            &mut Transform,
+        ),
         (With<PlayerTagComponent>, Without<CharacterTagComponent>),
     >,
 ) {
@@ -438,12 +444,12 @@ pub fn apply_player_camera_transform_using_current_state_system(
 
 // REGIONEND
 
-pub fn draw_player_camera_lookat_gizmos_system(
+pub fn draw_player_camera_cylinder_lookat_gizmos_system(
     mut gizmos: Gizmos,
     player_query: Query<
         (
-            &PlayerCameraTransitionCurrentStateComponent,
-            &PlayerCameraTransitionDesiredStateComponent,
+            &PlayerCameraCylinderTransitionCurrentStateComponent,
+            &PlayerCameraCylinderTransitionDesiredStateComponent,
         ),
         With<PlayerTagComponent>,
     >,
@@ -465,9 +471,12 @@ pub fn draw_player_camera_lookat_gizmos_system(
     );
 }
 
-pub fn draw_player_camera_gizmos_system(
+pub fn draw_player_camera_cylinder_gizmos_system(
     mut gizmos: Gizmos,
-    player_query: Query<(&PlayerCameraTransitionCurrentStateComponent,), With<PlayerTagComponent>>,
+    player_query: Query<
+        (&PlayerCameraCylinderTransitionCurrentStateComponent,),
+        With<PlayerTagComponent>,
+    >,
 ) {
     let player = player_query.single();
 

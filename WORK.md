@@ -1,4 +1,4 @@
-# STORY camera cylinder body rotation transition
+# STORY player camera cylinder origin rotation transition
 
 ## DESIGN
 
@@ -8,19 +8,15 @@ this will use the transition system (desired state, etc)
 
 ---
 
-# STORY I want max distance on camera origin transition
+# STORY I want max distance on camera cylinder origin transition
 
 ## DESIGN
 
-Add a "transition parameter component" which are used in transition systems to change behavior of that system
+Add a "cylinder transition parameter component" which are used in transition systems to change behavior of that system
 
 ## ACCEPTANCE
 
 I will know this is working when my laggy camera origin transform is clamped to a maximum distance (Vec3)
-
----
-
-# STORY fix performance while in air
 
 ---
 
@@ -42,26 +38,13 @@ share with discord
 
 ---
 
-# STORY As a user, I want character orientation to drive camera roll
-
-## DESIGN
-
-3 ranges:
-
-- up
-- lerp
-- down
-
-in the up and down ranges, the camera will snap to vertical
-in the middle 45 degree range, the camera will rotate with the character
-
----
-
 # ACTION
 
 show off the current build
 
 ---
+
+# STORY I want a real level with camera zones
 
 ---
 
