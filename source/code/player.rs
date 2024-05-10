@@ -1,11 +1,6 @@
-use crate::{
-    character::{
-        CharacterPlayerInputComponent, CharacterTransformationFromPlayerToCameraVariablesComponent,
-    },
-    math::{
-        CylinderCoordinates3dSmoothDampTransitionVariables, CylindricalCoordinates,
-        FromCylindrical, SmoothDampTransitionVariables,
-    },
+use crate::math::{
+    CylinderCoordinates3dSmoothDampTransitionVariables, CylindricalCoordinates, FromCylindrical,
+    SmoothDampTransitionVariables,
 };
 use bevy::{
     ecs::{

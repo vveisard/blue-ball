@@ -8,15 +8,42 @@ this will use the transition system (desired state, etc)
 
 ---
 
-# STORY I want max distance on camera cylinder origin transition
+# STORY as a player, I want slope movement velocity
 
 ## DESIGN
 
-Add a "cylinder transition parameter component" which are used in transition systems to change behavior of that system
+characters should have gravitational acceleration applied to their horizontal velocity while on a slope. Characters should have a harder time accelerating up slopes.
 
-## ACCEPTANCE
+I think it makes sense to apply a constant "acceleration" for slopes.
 
-I will know this is working when my laggy camera origin transform is clamped to a maximum distance (Vec3)
+---
+
+# STORY I want a custom character controller
+
+I need a fully custom character controller. I should research my
+
+## IMPLEMENTATION
+
+A module full of code to move around, like MoveShape, is ideal.
+
+## DESIGN
+
+Output of MoveShape is a data structure with "segments and events". Ie, the segments that were traveled, and when events happened during that travel.
+
+Fixed bodies should not be able to be moved into.
+Dynamic bodies should be ignored, and be able to be moved into to.
+
+---
+
+---
+
+---
+
+# STORY
+
+combine into Sonic Adventure 3Z package
+
+Importantly this will involve updating code to handle multiple players
 
 ---
 
@@ -28,29 +55,30 @@ I will know this is working when my laggy camera origin transform is clamped to 
 
 ---
 
+# STORY as a player, I want animations
+
+## DESIGN
+
+walking animation speed should be determined by speed
+
+---
+
 # ACTION
 
 basic show off
-Publish on itch.io under my personal account
-share on discord
 share on 4chan/vg/sthg/
-share with discord
+share on project discord
+share on my YouTube
 
 ---
-
-# ACTION
-
-show off the current build
-
----
-
-# STORY I want a real level with camera zones
 
 ---
 
 ---
 
 for fuark engine:
+
+---
 
 # STORY as a developer, I want state machine
 
@@ -60,15 +88,7 @@ Refactor to use states.
 
 I will know this is complete when:
 
-- as a developper, I can see the current phase
-
----
-
-# STORY as a player, I want animations
-
-## DESIGN
-
-walking animation speed should be determined by speed
+- as a developer, I can see the current phase
 
 ---
 
@@ -88,13 +108,11 @@ the direction and magnitude of the stick determines this
 
 ---
 
-# STORY as a player, I want slope movement velocity
+# STORY I want ledge pullups
 
-## DESIGN
+---
 
-characters should naturally begin to accelerate down slopes. Characters should have a harder time accelerating up slopes.
-
-I think it makes sense to apply a constant "acceleration" for slopes.
+# STORY I want a real level with camera zones
 
 ---
 
@@ -123,12 +141,6 @@ I will know this is working when:
 
 ---
 
-# STORY optimize update_character_movement_velocity_while_on_stage_system
-
-I'm doing an unnecessary transformation. I need to go from camera up to character up.
-
----
-
 # STORY as a user, I want to parameterize smooth_time using transition parameters
 
 `PlayerCameraTransitionCameraStateParemters`
@@ -140,3 +152,15 @@ I'm doing an unnecessary transformation. I need to go from camera up to characte
 I want to include gravity while on slopes.
 
 Gravity should increase maximum speed and acceleration (projected along the Y direction)
+
+---
+
+# STORY I want max distance on camera cylinder origin transition
+
+## DESIGN
+
+Add a "cylinder transition parameter component" which are used in transition systems to change behavior of that system
+
+## ACCEPTANCE
+
+I will know this is working when my laggy camera origin transform is clamped to a maximum distance (Vec3)
