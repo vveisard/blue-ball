@@ -1,31 +1,3 @@
-# STORY use transforms for camera cylinder
-
-## DESIGN
-
-currently, the player camera uses cylindrical coordinates around the player
-
-instead, we would like the camera cylinder body to be its own entity, and for the camera eyes to be a child entity with its own transform
-
-- entity:player
-  - entity:playerCameraBody
-    - entity:playerCameraEyes
-      - component:CylindricalTransformTranslationComponent {
-        translation: CylindricalCoordinates
-        }
-
-System which updates transfom.translation using CylindricalTransformTranslationComponent (before transform propogation?)
-
----
-
-# STORY camera cylinder body translation transition
-
-## DESIGN
-
-We want to transition the translation of the camera body towards the characters's translation
-this will use the transition system (desired state, etc)
-
----
-
 # STORY camera cylinder body rotation transition
 
 ## DESIGN
@@ -35,6 +7,16 @@ ie, slowly transition the camera cylinder "up" from the current up to the charac
 this will use the transition system (desired state, etc)
 
 ---
+
+# STORY I want max distance on camera origin transition
+
+## DESIGN
+
+Add a "transition parameter component" which are used in transition systems to change behavior of that system
+
+## ACCEPTANCE
+
+I will know this is working when my laggy camera origin transform is clamped to a maximum distance (Vec3)
 
 ---
 

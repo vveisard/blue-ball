@@ -55,16 +55,20 @@ use math::{
     SmoothDampTransitionVariables,
 };
 use player::{
-    draw_player_camera_gizmos_system, draw_player_camera_lookat_gizmos_system,
-    reset_player_roll_on_mouse_input_system,
-    transition_player_camera_current_state_rotation_system,
-    transition_player_camera_state_distance_system, transition_player_camera_state_height_system,
-    transition_player_camera_state_lookat_system, transition_player_camera_state_roll_system,
-    update_player_camera_desired_state_coordinates_using_input_system,
-    update_player_camera_state_roll_using_input_system,
-    update_player_camera_transform_using_state_system, PlayerBundle,
-    PlayerCameraCurrentStateComponent, PlayerCameraDesiredStateComponent, PlayerCameraState,
-    PlayerCameraTransitionStateVariablesComponent, PlayerTagComponent,
+    apply_player_camera_transform_using_current_state_system, draw_player_camera_gizmos_system,
+    draw_player_camera_lookat_gizmos_system,
+    set_player_camera_eyes_desired_state_height_and_lookat_using_input_system,
+    set_player_camera_eyes_desired_state_roll_on_mouse_input_system,
+    set_player_camera_eyes_desired_state_roll_using_input_system,
+    set_player_camera_origin_desired_state_translation_using_character_system,
+    transition_player_camera_eyes_current_state_distance_system,
+    transition_player_camera_eyes_current_state_height_system,
+    transition_player_camera_eyes_current_state_lookat_system,
+    transition_player_camera_eyes_current_state_roll_system,
+    transition_player_camera_eyes_current_state_rotation_system,
+    transition_player_camera_origin_current_state_system, PlayerBundle, PlayerCameraState,
+    PlayerCameraTransitionCurrentStateComponent, PlayerCameraTransitionDesiredStateComponent,
+    PlayerCameraTransitionVariablesComponent, PlayerTagComponent,
 };
 use std::{f32::consts::PI, ops::Mul, time::Duration};
 
@@ -203,7 +207,7 @@ fn update_character_rotation_from_player_to_character_system(
         .transformation_from_screen_to_global_on_character_horizontal = next_transformation;
 }
 
-fn update_character_movement_player_input_system(
+fn apply_character_movement_input_using_player_input_system(
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut character_query: Query<
         (
@@ -242,7 +246,7 @@ fn update_character_movement_player_input_system(
     character.1.global_movement_player_input = next_input;
 }
 
-fn update_character_jump_player_input_system(
+fn apply_character_jump_input_using_player_input_system(
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut character_query: Query<(&mut CharacterPlayerInputComponent,), With<CharacterTagComponent>>,
 ) {
@@ -582,39 +586,43 @@ fn spawn_player_system(mut commands: Commands) {
     commands.spawn((
         PlayerBundle {
             tag: PlayerTagComponent,
-            camera_current_state: PlayerCameraCurrentStateComponent {
+            camera_transition_current_state: PlayerCameraTransitionCurrentStateComponent {
                 camera_state: PlayerCameraState {
-                    local_cylinder_coordinates: CylindricalCoordinates {
+                    origin_translation: Vec3::default(),
+                    eyes_translation: CylindricalCoordinates {
                         distance: 15.0,
                         rotation: 0.0,
                         height: 5.0,
                     },
-                    lookat: Vec3::new(0.0, 4.0, 0.0),
-                    roll: 0.0,
+                    eyes_lookat: Vec3::new(0.0, 4.0, 0.0),
+                    eyes_roll: 0.0,
                 },
             },
-            camera_desired_state: PlayerCameraDesiredStateComponent {
+            camera_transition_desired_state: PlayerCameraTransitionDesiredStateComponent {
                 camera_state: PlayerCameraState {
-                    local_cylinder_coordinates: CylindricalCoordinates {
+                    origin_translation: Vec3::default(),
+                    eyes_translation: CylindricalCoordinates {
                         distance: 15.0,
                         rotation: 0.0,
                         height: 5.0,
                     },
-                    lookat: Vec3::new(0.0, 4.0, 0.0),
-                    roll: 0.0,
+                    eyes_lookat: Vec3::new(0.0, 4.0, 0.0),
+                    eyes_roll: 0.0,
                 },
             },
-            camera_transition_variables: PlayerCameraTransitionStateVariablesComponent {
-                transition_cylinder_coordinates:
-                    CylinderCoordinates3dSmoothDampTransitionVariables {
-                        distance: SmoothDampTransitionVariables { velocity: 0.0 },
-                        rotation: SmoothDampTransitionVariables { velocity: 0.0 },
-                        height: SmoothDampTransitionVariables { velocity: 0.0 },
-                    },
-                lookat: SmoothDampTransitionVariables {
+            camera_transition_variables: PlayerCameraTransitionVariablesComponent {
+                origin_translation: SmoothDampTransitionVariables {
                     velocity: Vec3::ZERO,
                 },
-                roll: SmoothDampTransitionVariables { velocity: 0.0 },
+                eyes_translation: CylinderCoordinates3dSmoothDampTransitionVariables {
+                    distance: SmoothDampTransitionVariables { velocity: 0.0 },
+                    rotation: SmoothDampTransitionVariables { velocity: 0.0 },
+                    height: SmoothDampTransitionVariables { velocity: 0.0 },
+                },
+                eyes_lookat: SmoothDampTransitionVariables {
+                    velocity: Vec3::ZERO,
+                },
+                eyes_roll: SmoothDampTransitionVariables { velocity: 0.0 },
             },
         },
         Camera3dBundle {
@@ -714,22 +722,25 @@ fn main() {
 
     app.add_systems(
         Update,
-        (update_player_camera_state_roll_using_input_system).run_if(in_state(AppState::Play)),
+        (set_player_camera_eyes_desired_state_roll_using_input_system)
+            .run_if(in_state(AppState::Play)),
     );
 
     app.add_systems(
         Update,
         (
-            update_player_camera_desired_state_coordinates_using_input_system,
-            update_character_movement_player_input_system,
-            reset_player_roll_on_mouse_input_system,
-            update_character_jump_player_input_system,
-            transition_player_camera_state_distance_system,
-            transition_player_camera_state_height_system,
-            transition_player_camera_current_state_rotation_system,
-            transition_player_camera_state_roll_system,
-            transition_player_camera_state_lookat_system,
-            update_player_camera_transform_using_state_system,
+            set_player_camera_origin_desired_state_translation_using_character_system,
+            set_player_camera_eyes_desired_state_height_and_lookat_using_input_system,
+            set_player_camera_eyes_desired_state_roll_on_mouse_input_system,
+            transition_player_camera_origin_current_state_system,
+            transition_player_camera_eyes_current_state_distance_system,
+            transition_player_camera_eyes_current_state_height_system,
+            transition_player_camera_eyes_current_state_rotation_system,
+            transition_player_camera_eyes_current_state_roll_system,
+            transition_player_camera_eyes_current_state_lookat_system,
+            apply_player_camera_transform_using_current_state_system,
+            apply_character_movement_input_using_player_input_system,
+            apply_character_jump_input_using_player_input_system,
         )
             .run_if(in_state(AppState::Play)),
     );
