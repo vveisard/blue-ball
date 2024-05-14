@@ -66,7 +66,8 @@ use player::{
     transition_player_camera_cylinder_eyes_current_state_lookat_system,
     transition_player_camera_cylinder_eyes_current_state_roll_system,
     transition_player_camera_cylinder_eyes_current_state_rotation_system,
-    transition_player_camera_cylinder_origin_current_state_system, PlayerBundle,
+    transition_player_camera_cylinder_origin_rotation_current_state_system,
+    transition_player_camera_cylinder_origin_translation_current_state_system, PlayerBundle,
     PlayerCameraCylinderState, PlayerCameraCylinderTransitionCurrentStateComponent,
     PlayerCameraCylinderTransitionDesiredStateComponent,
     PlayerCameraCylinderTransitionVariablesComponent, PlayerTagComponent,
@@ -591,6 +592,7 @@ fn spawn_player_system(mut commands: Commands) {
                 PlayerCameraCylinderTransitionCurrentStateComponent {
                     camera_state: PlayerCameraCylinderState {
                         origin_translation: Vec3::default(),
+                        origin_rotation: Quat::IDENTITY,
                         eyes_translation: CylindricalCoordinates {
                             distance: 15.0,
                             rotation: 0.0,
@@ -604,6 +606,7 @@ fn spawn_player_system(mut commands: Commands) {
                 PlayerCameraCylinderTransitionDesiredStateComponent {
                     camera_state: PlayerCameraCylinderState {
                         origin_translation: Vec3::default(),
+                        origin_rotation: Quat::IDENTITY,
                         eyes_translation: CylindricalCoordinates {
                             distance: 15.0,
                             rotation: 0.0,
@@ -618,6 +621,7 @@ fn spawn_player_system(mut commands: Commands) {
                     origin_translation: SmoothDampTransitionVariables {
                         velocity: Vec3::ZERO,
                     },
+                    origin_rotation: SmoothDampTransitionVariables { velocity: 0.0 },
                     eyes_translation: CylinderCoordinates3dSmoothDampTransitionVariables {
                         distance: SmoothDampTransitionVariables { velocity: 0.0 },
                         rotation: SmoothDampTransitionVariables { velocity: 0.0 },
@@ -736,7 +740,8 @@ fn main() {
             set_player_camera_cylinder_origin_desired_state_translation_using_character_system,
             set_player_camera_cylinder_eyes_desired_state_height_and_lookat_using_input_system,
             set_player_camera_cylinder_eyes_desired_state_roll_on_mouse_input_system,
-            transition_player_camera_cylinder_origin_current_state_system,
+            transition_player_camera_cylinder_origin_translation_current_state_system,
+            transition_player_camera_cylinder_origin_rotation_current_state_system,
             transition_player_camera_cylinder_eyes_current_state_distance_system,
             transition_player_camera_cylinder_eyes_current_state_height_system,
             transition_player_camera_cylinder_eyes_current_state_rotation_system,

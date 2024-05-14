@@ -1,4 +1,4 @@
-use bevy::math::{Vec2, Vec3};
+use bevy::math::{Quat, Vec2, Vec3};
 
 pub struct CylindricalCoordinates {
     // distance to the center
@@ -78,6 +78,20 @@ where
         max_speed: f32,
         delta_time: f32,
     ) -> (Self, Self);
+}
+
+pub trait SmoothDampAngle
+where
+    Self: Sized,
+{
+    fn smooth_damp_angle(
+        self,
+        target: Self,
+        current_velocity: f32,
+        smooth_time: f32,
+        max_speed: f32,
+        delta_time: f32,
+    ) -> (Self, f32);
 }
 
 impl SmoothDamp for Vec3 {
@@ -194,6 +208,72 @@ impl SmoothDamp for f32 {
         }
 
         return (output, current_velocity);
+    }
+}
+
+impl SmoothDampAngle for f32 {
+    fn smooth_damp_angle(
+        self,
+        mut target: Self,
+        mut current_velocity: Self,
+        mut smooth_time: f32,
+        max_speed: f32,
+        delta_time: f32,
+    ) -> (Self, Self) {
+        // Based on Game Programming Gems 4 Chapter 1.10
+        smooth_time = f32::max(0.0001, smooth_time);
+        let omega = 2.0 / smooth_time;
+
+        let x = omega * delta_time;
+        let exp = 1.0 / (1.0 + x + 0.48 * x * x + 0.235 * x * x * x);
+        let mut change = current_velocity - target;
+        let original_to = target;
+
+        // Clamp maximum speed
+        let max_change = max_speed * smooth_time;
+        change = f32::clamp(change, -max_change, max_change);
+        target = current_velocity - change;
+
+        let temp = (current_velocity + omega * change) * delta_time;
+        current_velocity = (current_velocity - omega * temp) * exp;
+        let mut output = target + (change + temp) * exp;
+
+        // Prevent overshooting
+        if (original_to - current_velocity > 0.0) == (output > original_to) {
+            output = original_to;
+            current_velocity = (output - original_to) / delta_time;
+        }
+
+        return (output, current_velocity);
+    }
+}
+
+impl SmoothDampAngle for Quat {
+    fn smooth_damp_angle(
+        self,
+        target: Self,
+        current_velocity: f32,
+        smooth_time: f32,
+        max_speed: f32,
+        delta_time: f32,
+    ) -> (Self, f32) {
+        let delta = Quat::angle_between(self, target);
+        if delta > 0.0 {
+            let (mut t, next_velocity) = f32::smooth_damp_angle(
+                delta,
+                0.0,
+                current_velocity,
+                smooth_time,
+                max_speed,
+                delta_time,
+            );
+            t = 1.0 - (t / delta);
+            let next_value = Quat::slerp(self, target, t);
+
+            return (next_value, next_velocity);
+        }
+
+        return (self, current_velocity);
     }
 }
 

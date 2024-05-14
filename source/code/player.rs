@@ -1,6 +1,6 @@
 use crate::math::{
     CylinderCoordinates3dSmoothDampTransitionVariables, CylindricalCoordinates, FromCylindrical,
-    SmoothDampTransitionVariables,
+    SmoothDampAngle, SmoothDampTransitionVariables,
 };
 use bevy::{
     ecs::{
@@ -33,6 +33,7 @@ pub struct PlayerTagComponent;
 #[derive(Component)]
 pub struct PlayerCameraCylinderTransitionVariablesComponent {
     pub origin_translation: SmoothDampTransitionVariables<Vec3>,
+    pub origin_rotation: SmoothDampTransitionVariables<f32>,
     pub eyes_translation: CylinderCoordinates3dSmoothDampTransitionVariables,
     pub eyes_lookat: SmoothDampTransitionVariables<Vec3>,
     pub eyes_roll: SmoothDampTransitionVariables<f32>,
@@ -44,6 +45,8 @@ pub struct PlayerCameraCylinderTransitionVariablesComponent {
 pub struct PlayerCameraCylinderState {
     /// translation of origin, in world space.
     pub origin_translation: Vec3,
+    /// rotation of origin, in world space.
+    pub origin_rotation: Quat,
     /// translation of eyes, with respect to origin.
     pub eyes_translation: CylindricalCoordinates,
     /// point to lookat, relative to origin_translation
@@ -159,7 +162,7 @@ pub fn set_player_camera_cylinder_eyes_desired_state_roll_on_mouse_input_system(
 
 // REGION transition current state systems
 
-pub fn transition_player_camera_cylinder_origin_current_state_system(
+pub fn transition_player_camera_cylinder_origin_translation_current_state_system(
     time: Res<Time>,
     mut player_query: Query<
         (
@@ -191,6 +194,42 @@ pub fn transition_player_camera_cylinder_origin_current_state_system(
 
         player_camera_transition_state_variables
             .origin_translation
+            .velocity = smooth_damp_result.1;
+    }
+}
+
+pub fn transition_player_camera_cylinder_origin_rotation_current_state_system(
+    time: Res<Time>,
+    mut player_query: Query<
+        (
+            &PlayerCameraCylinderTransitionDesiredStateComponent,
+            &mut PlayerCameraCylinderTransitionVariablesComponent,
+            &mut PlayerCameraCylinderTransitionCurrentStateComponent,
+        ),
+        (With<PlayerTagComponent>,),
+    >,
+) {
+    for (
+        player_camera_desired_state,
+        mut player_camera_transition_state_variables,
+        mut player_camera_current_state,
+    ) in &mut player_query
+    {
+        let smooth_damp_result = Quat::smooth_damp_angle(
+            player_camera_current_state.camera_state.origin_rotation,
+            player_camera_desired_state.camera_state.origin_rotation,
+            player_camera_transition_state_variables
+                .origin_rotation
+                .velocity,
+            0.1,
+            f32::INFINITY,
+            time.delta().as_secs_f32(),
+        );
+
+        player_camera_current_state.camera_state.origin_rotation = smooth_damp_result.0;
+
+        player_camera_transition_state_variables
+            .origin_rotation
             .velocity = smooth_damp_result.1;
     }
 }
@@ -424,8 +463,16 @@ pub fn apply_player_camera_cylinder_transform_using_current_state_system(
     >,
 ) {
     let mut player = player_query.single_mut();
-    let next_origin_translation: Vec3 = player.0.camera_state.origin_translation.clone();
-    let next_eyes_translation = Vec3::from_cylindrical(&player.0.camera_state.eyes_translation);
+
+    let next_origin_translation: Vec3 = Quat::mul_vec3(
+        player.0.camera_state.origin_rotation,
+        player.0.camera_state.origin_translation.clone(),
+    );
+
+    let next_eyes_translation: Vec3 = Quat::mul_vec3(
+        player.0.camera_state.origin_rotation,
+        Vec3::from_cylindrical(&player.0.camera_state.eyes_translation),
+    );
 
     player.1.translation = next_origin_translation + next_eyes_translation;
 
