@@ -1,5 +1,5 @@
 use bevy::{
-    app::{App, FixedPreUpdate, PostUpdate, Startup, Update},
+    app::{App, FixedPreUpdate, PluginGroup, PostUpdate, Startup, Update},
     asset::{AssetServer, Assets, Handle, LoadState, UntypedHandle},
     core_pipeline::core_3d::Camera3dBundle,
     ecs::{
@@ -28,6 +28,7 @@ use bevy::{
         TransformBundle,
     },
     utils::default,
+    window::{Window, WindowPlugin, WindowResolution},
     DefaultPlugins,
 };
 use bevy_rapier3d::{
@@ -57,10 +58,11 @@ use math::{
 use player::{
     apply_player_camera_cylinder_transform_using_current_state_system,
     draw_player_camera_cylinder_gizmos_system, draw_player_camera_cylinder_lookat_gizmos_system,
+    set_player_camera_cylinder_desired_state_origin_rotation_system,
+    set_player_camera_cylinder_desired_state_origin_translation_system,
     set_player_camera_cylinder_eyes_desired_state_height_and_lookat_using_input_system,
     set_player_camera_cylinder_eyes_desired_state_roll_on_mouse_input_system,
     set_player_camera_cylinder_eyes_desired_state_roll_using_input_system,
-    set_player_camera_cylinder_origin_desired_state_translation_using_character_system,
     transition_player_camera_cylinder_eyes_current_state_distance_system,
     transition_player_camera_cylinder_eyes_current_state_height_system,
     transition_player_camera_cylinder_eyes_current_state_lookat_system,
@@ -672,7 +674,16 @@ fn main() {
             .chain(),
     );
 
-    app.add_plugins(DefaultPlugins);
+    app.add_plugins(DefaultPlugins.set(
+        // here we configure the main window
+        WindowPlugin {
+            primary_window: Some(Window {
+                resolution: WindowResolution::new(800.0, 600.0),
+                ..Default::default()
+            }),
+            ..Default::default()
+        },
+    ));
     app.add_plugins((
         RapierPhysicsPlugin::<NoUserData>::default().in_fixed_schedule(),
         RapierDebugRenderPlugin::default(),
@@ -737,7 +748,8 @@ fn main() {
     app.add_systems(
         Update,
         (
-            set_player_camera_cylinder_origin_desired_state_translation_using_character_system,
+            set_player_camera_cylinder_desired_state_origin_rotation_system,
+            set_player_camera_cylinder_desired_state_origin_translation_system,
             set_player_camera_cylinder_eyes_desired_state_height_and_lookat_using_input_system,
             set_player_camera_cylinder_eyes_desired_state_roll_on_mouse_input_system,
             transition_player_camera_cylinder_origin_translation_current_state_system,

@@ -303,10 +303,10 @@ pub fn update_character_body_while_on_stage_system(
             Group::from_bits(0b0010).unwrap(),
         )),
     ) {
-        println!(
-            "moving on stage. {} {}",
-            character_hips_position, character_hips_down
-        );
+        // println!(
+        //     "moving on stage. {} {}",
+        //     character_hips_position, character_hips_down
+        // );
 
         // snap to ground
         let rotation: Quat = Quat::from_rotation_arc(*character.3.up(), ray_intersection.normal);

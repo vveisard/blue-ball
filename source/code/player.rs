@@ -80,7 +80,23 @@ pub struct PlayerBundle {
 // REGION update transition desired state
 
 /// update desired translation for player camera origin.
-pub fn set_player_camera_cylinder_origin_desired_state_translation_using_character_system(
+pub fn set_player_camera_cylinder_desired_state_origin_rotation_system(
+    mut player_query: Query<
+        (&mut PlayerCameraCylinderTransitionDesiredStateComponent,),
+        (With<PlayerTagComponent>,),
+    >,
+    character_query: Query<(&Transform,), With<CharacterTagComponent>>,
+) {
+    let character = character_query.single();
+    let mut player = player_query.single_mut();
+
+    let next_rotation = Quat::from_rotation_arc(Vec3::Y, *character.0.up());
+
+    player.0.camera_state.origin_rotation = next_rotation;
+}
+
+/// update desired translation for player camera origin.
+pub fn set_player_camera_cylinder_desired_state_origin_translation_system(
     mut player_query: Query<
         (&mut PlayerCameraCylinderTransitionDesiredStateComponent,),
         (With<PlayerTagComponent>,),
@@ -464,10 +480,7 @@ pub fn apply_player_camera_cylinder_transform_using_current_state_system(
 ) {
     let mut player = player_query.single_mut();
 
-    let next_origin_translation: Vec3 = Quat::mul_vec3(
-        player.0.camera_state.origin_rotation,
-        player.0.camera_state.origin_translation.clone(),
-    );
+    let next_origin_translation: Vec3 = player.0.camera_state.origin_translation.clone();
 
     let next_eyes_translation: Vec3 = Quat::mul_vec3(
         player.0.camera_state.origin_rotation,
