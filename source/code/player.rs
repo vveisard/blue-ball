@@ -1,9 +1,6 @@
-use crate::{
-    character::CharacterStageComponent,
-    math::{
-        CylinderCoordinates3dSmoothDampTransitionVariables, CylindricalCoordinates,
-        FromCylindrical, Slerp, SmoothDampTransitionVariables,
-    },
+use crate::math::{
+    CylinderCoordinates3dSmoothDampTransitionVariables, CylindricalCoordinates, FromCylindrical,
+    Slerp, SmoothDampTransitionVariables,
 };
 use bevy::{
     ecs::{
@@ -27,6 +24,8 @@ use bevy::{
 use crate::character::CharacterTagComponent;
 use crate::math::SmoothDamp;
 
+const CAMERA_TRANSITON_SPEED: f32 = 2.5;
+
 #[derive(Component)]
 pub struct PlayerTagComponent;
 
@@ -36,6 +35,7 @@ pub struct PlayerTagComponent;
 #[derive(Component)]
 pub struct PlayerCameraCylinderTransitionVariablesComponent {
     pub origin_translation: SmoothDampTransitionVariables<Vec3>,
+    pub origin_rotation: SmoothDampTransitionVariables<f32>,
     pub eyes_translation: CylinderCoordinates3dSmoothDampTransitionVariables,
     pub eyes_lookat: SmoothDampTransitionVariables<Vec3>,
     pub eyes_roll: SmoothDampTransitionVariables<f32>,
@@ -47,6 +47,10 @@ pub struct PlayerCameraCylinderTransitionVariablesComponent {
 pub struct PlayerCameraCylinderState {
     /// translation of origin, in world space.
     pub origin_translation: Vec3,
+
+    /// longitudinal axis for cylindrical coordinates
+    pub origin_up: Vec3,
+
     /// translation of eyes, with respect to origin.
     pub eyes_translation: CylindricalCoordinates,
     /// point to lookat, relative to origin_translation
@@ -81,8 +85,8 @@ pub struct PlayerBundle {
 
 // REGION update transition desired state
 
-/// update desired translation for player camera origin.
-pub fn set_player_camera_cylinder_origin_desired_state_translation_using_character_system(
+/// set desired translation for player camera origin.
+pub fn set_player_camera_cylinder_desired_state_origin_translation_using_character_system(
     mut player_query: Query<
         (&mut PlayerCameraCylinderTransitionDesiredStateComponent,),
         (With<PlayerTagComponent>,),
@@ -95,8 +99,30 @@ pub fn set_player_camera_cylinder_origin_desired_state_translation_using_charact
     player.0.camera_state.origin_translation = character.0.translation;
 }
 
-/// update desired up for player camera origin.
-pub fn set_player_camera_cylinder_origin_desired_state_eyes_up_using_character_system(
+/// set desired up for player camera origin.
+pub fn set_player_camera_cylinder_desired_state_origin_rotation_using_character_system(
+    mut player_query: Query<
+        (&mut PlayerCameraCylinderTransitionDesiredStateComponent,),
+        (With<PlayerTagComponent>,),
+    >,
+    character_query: Query<(&Transform,), With<CharacterTagComponent>>,
+) {
+    let character_result = character_query.get_single();
+    let mut player = player_query.single_mut();
+
+    if character_result.is_err() {
+        return;
+    }
+
+    let character = character_result.unwrap();
+
+    // TODO deadzones on the verticals
+
+    player.0.camera_state.origin_up = *character.0.local_y();
+}
+
+/// set desired up for player camera origin.
+pub fn set_player_camera_cylinder_desired_state_eyes_up_using_character_system(
     mut player_query: Query<
         (&mut PlayerCameraCylinderTransitionDesiredStateComponent,),
         (With<PlayerTagComponent>,),
@@ -117,7 +143,7 @@ pub fn set_player_camera_cylinder_origin_desired_state_eyes_up_using_character_s
     player.0.camera_state.eyes_up = *character.0.local_y();
 }
 
-/// update desired roll for player camera eyes.
+/// set desired roll for player camera eyes.
 pub fn set_player_camera_cylinder_eyes_desired_state_roll_using_input_system(
     mouse_button_input: Res<ButtonInput<MouseButton>>,
     mut player_query: Query<
@@ -136,8 +162,8 @@ pub fn set_player_camera_cylinder_eyes_desired_state_roll_using_input_system(
     }
 }
 
-/// update desired height and lookat for player camera eyes.
-pub fn set_player_camera_cylinder_eyes_desired_state_height_and_eyes_lookat_using_input_system(
+/// set desired height and lookat for player camera eyes.
+pub fn set_player_camera_cylinder_desired_state_eyes_height_and_eyes_lookat_using_input_system(
     mut mouse_motion_events: EventReader<MouseMotion>,
     mut mouse_wheel_events: EventReader<MouseWheel>,
     mut player_query: Query<
@@ -168,7 +194,7 @@ pub fn set_player_camera_cylinder_eyes_desired_state_height_and_eyes_lookat_usin
     player.1.camera_state.eyes_translation.height -= input.y * 0.5;
 }
 
-pub fn set_player_camera_cylinder_eyes_desired_state_eyes_roll_on_mouse_input_system(
+pub fn set_player_camera_cylinder_desired_state_eyes_roll_on_mouse_input_system(
     mouse_button_input: Res<ButtonInput<MouseButton>>,
     mut player_query: Query<
         (&mut PlayerCameraCylinderTransitionDesiredStateComponent,),
@@ -219,6 +245,28 @@ pub fn transition_player_camera_cylinder_origin_translation_system(
         player_camera_transition_state_variables
             .origin_translation
             .velocity = smooth_damp_result.1;
+    }
+}
+
+pub fn transition_player_camera_cylinder_origin_rotation_system(
+    time: Res<Time>,
+    mut player_query: Query<
+        (
+            &PlayerCameraCylinderTransitionDesiredStateComponent,
+            &mut PlayerCameraCylinderTransitionCurrentStateComponent,
+        ),
+        (With<PlayerTagComponent>,),
+    >,
+) {
+    for (player_camera_desired_state, mut player_camera_current_state) in &mut player_query {
+        // TODO use smooth_damp
+        let next_origin_up = Vec3::slerp(
+            &player_camera_current_state.camera_state.origin_up,
+            player_camera_desired_state.camera_state.origin_up,
+            time.delta().as_secs_f32() * CAMERA_TRANSITON_SPEED,
+        );
+
+        player_camera_current_state.camera_state.origin_up = next_origin_up;
     }
 }
 
@@ -378,15 +426,14 @@ pub fn transition_player_camera_cylinder_eyes_up_system(
     >,
 ) {
     for (player_camera_desired_state, mut player_camera_current_state) in &mut player_query {
-        let next_up = Vec3::slerp(
+        // TODO use smoothdamp instead of slerp
+        let next_eyes_up = Vec3::slerp(
             &player_camera_current_state.camera_state.eyes_up,
             player_camera_desired_state.camera_state.eyes_up,
-            time.delta().as_secs_f32() * 3.33,
+            time.delta().as_secs_f32() * CAMERA_TRANSITON_SPEED,
         );
 
-        // TODO use smoothdamp instead of slerp
-
-        player_camera_current_state.camera_state.eyes_up = next_up;
+        player_camera_current_state.camera_state.eyes_up = next_eyes_up;
     }
 }
 
@@ -476,9 +523,12 @@ pub fn apply_player_camera_cylinder_transform_using_current_state_system(
 ) {
     let mut player = player_query.single_mut();
     let next_origin_translation: Vec3 = player.0.camera_state.origin_translation.clone();
-    let next_eyes_translation = Vec3::from_cylindrical(&player.0.camera_state.eyes_translation);
+    let eyes_local_translation = Vec3::from_cylindrical(&player.0.camera_state.eyes_translation);
 
-    player.1.translation = next_origin_translation + next_eyes_translation;
+    let origin_rotation = Quat::from_rotation_arc(Vec3::Y, player.0.camera_state.eyes_up);
+
+    player.1.translation =
+        next_origin_translation + Quat::mul_vec3(origin_rotation, eyes_local_translation);
 
     player.1.look_at(
         next_origin_translation + player.0.camera_state.eyes_lookat,
@@ -527,31 +577,18 @@ pub fn draw_player_camera_cylinder_gizmos_system(
     let player = player_query.single();
 
     let player_camera_origin_current_translation = player.0.camera_state.origin_translation;
-    let player_camera_eyes_current_translation =
-        Vec3::from_cylindrical(&player.0.camera_state.eyes_translation);
 
     gizmos.circle(
         player_camera_origin_current_translation,
-        Direction3d::Y,
+        Direction3d::new_unchecked(player.0.camera_state.origin_up),
         player.0.camera_state.eyes_translation.distance,
         Color::WHITE,
     );
 
+    // up axis
     gizmos.line(
         player_camera_origin_current_translation,
-        player_camera_origin_current_translation
-            + Vec3::new(0.0, player_camera_eyes_current_translation.y, 0.0),
-        Color::WHITE,
-    );
-
-    gizmos.line(
-        player_camera_origin_current_translation,
-        player_camera_origin_current_translation
-            + Vec3::new(
-                player_camera_eyes_current_translation.x,
-                0.0,
-                player_camera_eyes_current_translation.z,
-            ),
+        player_camera_origin_current_translation + player.0.camera_state.origin_up * 5.0,
         Color::WHITE,
     );
 }

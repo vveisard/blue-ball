@@ -303,10 +303,10 @@ pub fn update_character_body_while_on_stage_system(
             Group::from_bits(0b0010).unwrap(),
         )),
     ) {
-        println!(
-            "moving on stage. {} {}",
-            character_hips_position, character_hips_down
-        );
+        // println!(
+        //     "moving on stage. {} {}",
+        //     character_hips_position, character_hips_down
+        // );
 
         // snap to ground
         let rotation: Quat = Quat::from_rotation_arc(*character.3.up(), ray_intersection.normal);
@@ -332,7 +332,7 @@ pub fn update_character_body_while_on_stage_system(
             character_hips_position + character_hips_down * character_hips_height;
         let character_feet_snap_distance = 0.32;
 
-        println!("moving downwards on stage. {}", character_feet_position);
+        //println!("moving downwards on stage. {}", character_feet_position);
 
         if let Some((stage_entity, ray_intersection)) = rapier_context.cast_ray_and_get_normal(
             character_feet_position,
@@ -453,7 +453,7 @@ pub fn update_character_body_try_land_while_in_air_system(
         return;
     }
 
-    println!("moving down in air");
+    //println!("moving down in air");
 
     // from hips
     if let Some((stage_entity, ray_intersection)) = rapier_context.cast_ray_and_get_normal(

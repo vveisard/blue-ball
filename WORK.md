@@ -1,20 +1,28 @@
-# STORY player camera cylinder origin rotation transition
+# STORY replace camera lookat with eyes_forward
 
 ## DESIGN
 
-We want to transition the rotation of the camera body towards the characters's rotation
-ie, slowly transition the camera cylinder "up" from the current up to the character's up
-this will use the transition system (desired state, etc)
+eyes_forward and eyes_up will be used to determine the camera rotation.
+
+camera should look _down_ as the height moves up
+
+## IMPLEMENTATION
+
+I can adjust the y value of the direction using vertical mouse input, and adjust the x/z using horizontal mouse input by rotating the desired direction about the Y axis (to match the eyes translation)
 
 ---
 
-# STORY as a player, I want slope movement velocity
+# STORY generic camera transform
+
+I've decided that I should create a generic camera interpolation system.
 
 ## DESIGN
 
-characters should have gravitational acceleration applied to their horizontal velocity while on a slope. Characters should have a harder time accelerating up slopes.
+the camera cylinder behavior should apply a desired transform using the cylinder coordinates.
 
-I think it makes sense to apply a constant "acceleration" for slopes.
+## TODO
+
+remove camera cylinder "desired state"
 
 ---
 
@@ -101,6 +109,16 @@ running uses a _horizontal direction_ and _velocity_ .
 A "running" character has a desired direction (rotates towards) and desired speed.
 
 the direction and magnitude of the stick determines this
+
+---
+
+# STORY as a player, I want slope movement velocity
+
+## DESIGN
+
+characters should have gravitational acceleration applied to their horizontal velocity while on a slope. Characters should have a harder time accelerating up slopes.
+
+I think it makes sense to apply a constant "acceleration" for slopes.
 
 ---
 

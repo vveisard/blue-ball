@@ -57,17 +57,19 @@ use math::{
 use player::{
     apply_player_camera_cylinder_transform_using_current_state_system,
     draw_player_camera_cylinder_gizmos_system, draw_player_camera_cylinder_lookat_gizmos_system,
-    set_player_camera_cylinder_eyes_desired_state_eyes_roll_on_mouse_input_system,
-    set_player_camera_cylinder_eyes_desired_state_height_and_eyes_lookat_using_input_system,
+    set_player_camera_cylinder_desired_state_eyes_height_and_eyes_lookat_using_input_system,
+    set_player_camera_cylinder_desired_state_eyes_roll_on_mouse_input_system,
+    set_player_camera_cylinder_desired_state_eyes_up_using_character_system,
+    set_player_camera_cylinder_desired_state_origin_rotation_using_character_system,
+    set_player_camera_cylinder_desired_state_origin_translation_using_character_system,
     set_player_camera_cylinder_eyes_desired_state_roll_using_input_system,
-    set_player_camera_cylinder_origin_desired_state_eyes_up_using_character_system,
-    set_player_camera_cylinder_origin_desired_state_translation_using_character_system,
     transition_player_camera_cylinder_eyes_distance_system,
     transition_player_camera_cylinder_eyes_height_system,
     transition_player_camera_cylinder_eyes_lookat_system,
     transition_player_camera_cylinder_eyes_roll_system,
     transition_player_camera_cylinder_eyes_rotation_system,
     transition_player_camera_cylinder_eyes_up_system,
+    transition_player_camera_cylinder_origin_rotation_system,
     transition_player_camera_cylinder_origin_translation_system, PlayerBundle,
     PlayerCameraCylinderState, PlayerCameraCylinderTransitionCurrentStateComponent,
     PlayerCameraCylinderTransitionDesiredStateComponent,
@@ -593,6 +595,7 @@ fn spawn_player_system(mut commands: Commands) {
                 PlayerCameraCylinderTransitionCurrentStateComponent {
                     camera_state: PlayerCameraCylinderState {
                         origin_translation: Vec3::default(),
+                        origin_up: Vec3::Y,
                         eyes_translation: CylindricalCoordinates {
                             distance: 15.0,
                             rotation: 0.0,
@@ -607,6 +610,7 @@ fn spawn_player_system(mut commands: Commands) {
                 PlayerCameraCylinderTransitionDesiredStateComponent {
                     camera_state: PlayerCameraCylinderState {
                         origin_translation: Vec3::default(),
+                        origin_up: Vec3::Y,
                         eyes_translation: CylindricalCoordinates {
                             distance: 15.0,
                             rotation: 0.0,
@@ -622,6 +626,7 @@ fn spawn_player_system(mut commands: Commands) {
                     origin_translation: SmoothDampTransitionVariables {
                         velocity: Vec3::ZERO,
                     },
+                    origin_rotation: SmoothDampTransitionVariables { velocity: 0.0 },
                     eyes_translation: CylinderCoordinates3dSmoothDampTransitionVariables {
                         distance: SmoothDampTransitionVariables { velocity: 0.0 },
                         rotation: SmoothDampTransitionVariables { velocity: 0.0 },
@@ -737,11 +742,13 @@ fn main() {
     app.add_systems(
         Update,
         (
-            set_player_camera_cylinder_origin_desired_state_translation_using_character_system,
-            set_player_camera_cylinder_origin_desired_state_eyes_up_using_character_system,
-            set_player_camera_cylinder_eyes_desired_state_height_and_eyes_lookat_using_input_system,
-            set_player_camera_cylinder_eyes_desired_state_eyes_roll_on_mouse_input_system,
+            set_player_camera_cylinder_desired_state_origin_translation_using_character_system,
+            set_player_camera_cylinder_desired_state_origin_rotation_using_character_system,
+            set_player_camera_cylinder_desired_state_eyes_up_using_character_system,
+            set_player_camera_cylinder_desired_state_eyes_height_and_eyes_lookat_using_input_system,
+            set_player_camera_cylinder_desired_state_eyes_roll_on_mouse_input_system,
             transition_player_camera_cylinder_origin_translation_system,
+            transition_player_camera_cylinder_origin_rotation_system,
             transition_player_camera_cylinder_eyes_distance_system,
             transition_player_camera_cylinder_eyes_height_system,
             transition_player_camera_cylinder_eyes_rotation_system,
