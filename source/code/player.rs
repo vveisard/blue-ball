@@ -1,6 +1,9 @@
-use crate::math::{
-    CylinderCoordinates3dSmoothDampTransitionVariables, CylindricalCoordinates, FromCylindrical,
-    SmoothDampTransitionVariables,
+use crate::{
+    character::CharacterStageComponent,
+    math::{
+        CylinderCoordinates3dSmoothDampTransitionVariables, CylindricalCoordinates,
+        FromCylindrical, Slerp, SmoothDampTransitionVariables,
+    },
 };
 use bevy::{
     ecs::{
@@ -49,6 +52,8 @@ pub struct PlayerCameraCylinderState {
     /// point to lookat, relative to origin_translation
     pub eyes_lookat: Vec3,
 
+    pub eyes_up: Vec3,
+
     pub eyes_roll: f32,
 }
 
@@ -90,6 +95,28 @@ pub fn set_player_camera_cylinder_origin_desired_state_translation_using_charact
     player.0.camera_state.origin_translation = character.0.translation;
 }
 
+/// update desired up for player camera origin.
+pub fn set_player_camera_cylinder_origin_desired_state_eyes_up_using_character_system(
+    mut player_query: Query<
+        (&mut PlayerCameraCylinderTransitionDesiredStateComponent,),
+        (With<PlayerTagComponent>,),
+    >,
+    character_query: Query<(&Transform,), With<CharacterTagComponent>>,
+) {
+    let character_result = character_query.get_single();
+    let mut player = player_query.single_mut();
+
+    if character_result.is_err() {
+        return;
+    }
+
+    let character = character_result.unwrap();
+
+    // TODO deadzones on the verticals
+
+    player.0.camera_state.eyes_up = *character.0.local_y();
+}
+
 /// update desired roll for player camera eyes.
 pub fn set_player_camera_cylinder_eyes_desired_state_roll_using_input_system(
     mouse_button_input: Res<ButtonInput<MouseButton>>,
@@ -110,7 +137,7 @@ pub fn set_player_camera_cylinder_eyes_desired_state_roll_using_input_system(
 }
 
 /// update desired height and lookat for player camera eyes.
-pub fn set_player_camera_cylinder_eyes_desired_state_height_and_lookat_using_input_system(
+pub fn set_player_camera_cylinder_eyes_desired_state_height_and_eyes_lookat_using_input_system(
     mut mouse_motion_events: EventReader<MouseMotion>,
     mut mouse_wheel_events: EventReader<MouseWheel>,
     mut player_query: Query<
@@ -141,7 +168,7 @@ pub fn set_player_camera_cylinder_eyes_desired_state_height_and_lookat_using_inp
     player.1.camera_state.eyes_translation.height -= input.y * 0.5;
 }
 
-pub fn set_player_camera_cylinder_eyes_desired_state_roll_on_mouse_input_system(
+pub fn set_player_camera_cylinder_eyes_desired_state_eyes_roll_on_mouse_input_system(
     mouse_button_input: Res<ButtonInput<MouseButton>>,
     mut player_query: Query<
         (&mut PlayerCameraCylinderTransitionDesiredStateComponent,),
@@ -159,7 +186,7 @@ pub fn set_player_camera_cylinder_eyes_desired_state_roll_on_mouse_input_system(
 
 // REGION transition current state systems
 
-pub fn transition_player_camera_cylinder_origin_current_state_system(
+pub fn transition_player_camera_cylinder_origin_translation_system(
     time: Res<Time>,
     mut player_query: Query<
         (
@@ -196,7 +223,7 @@ pub fn transition_player_camera_cylinder_origin_current_state_system(
 }
 
 /// transition player camera eyes current state towards desired state.
-pub fn transition_player_camera_cylinder_eyes_current_state_rotation_system(
+pub fn transition_player_camera_cylinder_eyes_rotation_system(
     time: Res<Time>,
     mut player_query: Query<
         (
@@ -244,7 +271,7 @@ pub fn transition_player_camera_cylinder_eyes_current_state_rotation_system(
 }
 
 /// transition player camera eyes current state towards desired state.
-pub fn transition_player_camera_cylinder_eyes_current_state_height_system(
+pub fn transition_player_camera_cylinder_eyes_height_system(
     time: Res<Time>,
     mut player_query: Query<
         (
@@ -292,7 +319,7 @@ pub fn transition_player_camera_cylinder_eyes_current_state_height_system(
 }
 
 /// transition player camera eyes current state towards desired state.
-pub fn transition_player_camera_cylinder_eyes_current_state_distance_system(
+pub fn transition_player_camera_cylinder_eyes_distance_system(
     time: Res<Time>,
     mut player_query: Query<
         (
@@ -340,7 +367,31 @@ pub fn transition_player_camera_cylinder_eyes_current_state_distance_system(
 }
 
 /// transition player camera eyes current state towards desired state.
-pub fn transition_player_camera_cylinder_eyes_current_state_roll_system(
+pub fn transition_player_camera_cylinder_eyes_up_system(
+    time: Res<Time>,
+    mut player_query: Query<
+        (
+            &PlayerCameraCylinderTransitionDesiredStateComponent,
+            &mut PlayerCameraCylinderTransitionCurrentStateComponent,
+        ),
+        With<PlayerTagComponent>,
+    >,
+) {
+    for (player_camera_desired_state, mut player_camera_current_state) in &mut player_query {
+        let next_up = Vec3::slerp(
+            &player_camera_current_state.camera_state.eyes_up,
+            player_camera_desired_state.camera_state.eyes_up,
+            time.delta().as_secs_f32() * 3.33,
+        );
+
+        // TODO use smoothdamp instead of slerp
+
+        player_camera_current_state.camera_state.eyes_up = next_up;
+    }
+}
+
+/// transition player camera eyes current state towards desired state.
+pub fn transition_player_camera_cylinder_eyes_roll_system(
     time: Res<Time>,
     mut player_query: Query<
         (
@@ -373,7 +424,7 @@ pub fn transition_player_camera_cylinder_eyes_current_state_roll_system(
 }
 
 /// transition player camera eyes current state towards desired state.
-pub fn transition_player_camera_cylinder_eyes_current_state_lookat_system(
+pub fn transition_player_camera_cylinder_eyes_lookat_system(
     time: Res<Time>,
     mut player_query: Query<
         (
@@ -431,7 +482,7 @@ pub fn apply_player_camera_cylinder_transform_using_current_state_system(
 
     player.1.look_at(
         next_origin_translation + player.0.camera_state.eyes_lookat,
-        Vec3::Y,
+        player.0.camera_state.eyes_up,
     );
 
     player.1.rotate_local_z(player.0.camera_state.eyes_roll);

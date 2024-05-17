@@ -80,6 +80,26 @@ where
     ) -> (Self, Self);
 }
 
+pub trait Slerp {
+    fn slerp(&self, end: Vec3, s: f32) -> Self;
+}
+
+impl Slerp for Vec3 {
+    fn slerp(&self, end: Vec3, s: f32) -> Vec3 {
+        let mut dot: f32 = Vec3::dot(*self, end);
+
+        dot = f32::clamp(dot, -1.0, 1.0);
+
+        let theta: f32 = f32::acos(dot) * s;
+
+        let mut relative_vec: Vec3 = end - (*self * dot);
+
+        relative_vec = relative_vec.normalize_or_zero();
+
+        return (*self * f32::cos(theta)) + (relative_vec * f32::sin(theta));
+    }
+}
+
 impl SmoothDamp for Vec3 {
     fn smooth_damp(
         self,
