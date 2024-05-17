@@ -8,7 +8,13 @@ camera should look _down_ as the height moves up
 
 ## IMPLEMENTATION
 
-I can adjust the y value of the direction using vertical mouse input, and adjust the x/z using horizontal mouse input by rotating the desired direction about the Y axis (to match the eyes translation)
+I can adjust the y value of the direction using vertical mouse input, and adjust the x/z using horizontal mouse input by rotating the desired direction about the Y axis (at same speed of the angle)
+
+---
+
+# ACTION
+
+show-off
 
 ---
 
