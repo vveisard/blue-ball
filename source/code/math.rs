@@ -1,3 +1,5 @@
+use std::f32::consts::PI;
+
 use bevy::math::{Vec2, Vec3};
 
 pub struct CylindricalCoordinates {
@@ -62,7 +64,6 @@ pub struct SmoothDampTransitionVariables<T> {
 // parameters for smooth damp transition of cylinder coordinates 3d.
 pub struct CylinderCoordinates3dSmoothDampTransitionVariables {
     pub distance: SmoothDampTransitionVariables<f32>,
-    pub rotation: SmoothDampTransitionVariables<f32>,
     pub height: SmoothDampTransitionVariables<f32>,
 }
 
@@ -78,6 +79,28 @@ where
         max_speed: f32,
         delta_time: f32,
     ) -> (Self, Self);
+}
+
+pub trait LerpAngle {
+    fn lerp_angle(self, end: Self, s: f32) -> Self;
+}
+
+impl LerpAngle for f32 {
+    fn lerp_angle(self, end: Self, s: f32) -> Self {
+        // Normalize angles to be between 0 and 2*PI
+        let mut angle1 = self % (2.0 * PI);
+        if angle1 < 0.0 {
+            angle1 += 2.0 * PI;
+        }
+        let mut angle2 = end % (2.0 * PI);
+        if angle2 < 0.0 {
+            angle2 += 2.0 * PI;
+        }
+
+        let delta_angle = (angle2 - angle1 + PI) % (2.0 * PI) - PI;
+
+        return angle1 + delta_angle * s;
+    }
 }
 
 pub trait Slerp {

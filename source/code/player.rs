@@ -1,6 +1,8 @@
+use std::f32::consts::PI;
+
 use crate::math::{
     CylinderCoordinates3dSmoothDampTransitionVariables, CylindricalCoordinates, FromCylindrical,
-    Slerp, SmoothDampTransitionVariables,
+    LerpAngle, Slerp, SmoothDampTransitionVariables,
 };
 use bevy::{
     ecs::{
@@ -37,7 +39,6 @@ pub struct PlayerCameraCylinderTransitionVariablesComponent {
     pub origin_translation: SmoothDampTransitionVariables<Vec3>,
     pub origin_rotation: SmoothDampTransitionVariables<f32>,
     pub eyes_translation: CylinderCoordinates3dSmoothDampTransitionVariables,
-    pub eyes_lookat: SmoothDampTransitionVariables<Vec3>,
     pub eyes_roll: SmoothDampTransitionVariables<f32>,
 }
 
@@ -53,10 +54,12 @@ pub struct PlayerCameraCylinderState {
 
     /// translation of eyes, with respect to origin.
     pub eyes_translation: CylindricalCoordinates,
-    /// point to lookat, relative to origin_translation
-    pub eyes_lookat: Vec3,
 
+    /// direction which is up for eyes
     pub eyes_up: Vec3,
+
+    /// direction which is forward for eyes
+    pub eyes_forward: Vec3,
 
     pub eyes_roll: f32,
 }
@@ -163,7 +166,7 @@ pub fn set_player_camera_cylinder_eyes_desired_state_roll_using_input_system(
 }
 
 /// set desired height and lookat for player camera eyes.
-pub fn set_player_camera_cylinder_desired_state_eyes_height_and_eyes_lookat_using_input_system(
+pub fn set_player_camera_cylinder_desired_state_eyes_translation_and_forward_using_input_system(
     mut mouse_motion_events: EventReader<MouseMotion>,
     mut mouse_wheel_events: EventReader<MouseWheel>,
     mut player_query: Query<
@@ -176,22 +179,29 @@ pub fn set_player_camera_cylinder_desired_state_eyes_height_and_eyes_lookat_usin
 ) {
     let mut player = player_query.single_mut();
 
-    let mut input = Vec2::ZERO;
+    let mut mouse_move_input = Vec2::ZERO;
     for mouse_event in mouse_motion_events.read() {
-        input.x += mouse_event.delta.x * 0.001;
-        input.y += mouse_event.delta.y * 0.001;
+        mouse_move_input.x += mouse_event.delta.x * 0.001;
+        mouse_move_input.y += mouse_event.delta.y * 0.001;
     }
 
-    let mut zoom_input: f32 = 0.0;
+    let mut mouse_wheel_input: f32 = 0.0;
     for mouse_event in mouse_wheel_events.read() {
-        zoom_input += mouse_event.y * 0.1;
+        mouse_wheel_input += mouse_event.y * 0.1;
     }
 
-    player.1.camera_state.eyes_translation.distance -= zoom_input;
+    // translation
+    player.1.camera_state.eyes_translation.distance -= mouse_wheel_input;
+    player.1.camera_state.eyes_translation.rotation =
+        (player.1.camera_state.eyes_translation.rotation + mouse_move_input.x) % (PI * 2.0);
+    player.1.camera_state.eyes_translation.height -= mouse_move_input.y * 0.5;
 
-    player.1.camera_state.eyes_translation.rotation += input.x;
-    player.1.camera_state.eyes_lookat.y -= input.y;
-    player.1.camera_state.eyes_translation.height -= input.y * 0.5;
+    // forward
+    let next_camera_forward_rotation =
+        Quat::from_axis_angle(Vec3::Y, player.1.camera_state.eyes_translation.rotation);
+    let mut next_camera_forward = Quat::mul_vec3(next_camera_forward_rotation, Vec3::NEG_X);
+    //next_camera_forward.y -= mouse_move_input.y;
+    player.1.camera_state.eyes_forward = next_camera_forward;
 }
 
 pub fn set_player_camera_cylinder_desired_state_eyes_roll_on_mouse_input_system(
@@ -276,19 +286,13 @@ pub fn transition_player_camera_cylinder_eyes_rotation_system(
     mut player_query: Query<
         (
             &PlayerCameraCylinderTransitionDesiredStateComponent,
-            &mut PlayerCameraCylinderTransitionVariablesComponent,
             &mut PlayerCameraCylinderTransitionCurrentStateComponent,
         ),
         (With<PlayerTagComponent>,),
     >,
 ) {
-    for (
-        player_camera_desired_state,
-        mut player_camera_transition_state_variables,
-        mut player_camera_current_state,
-    ) in &mut player_query
-    {
-        let smooth_damp_result = f32::smooth_damp(
+    for (player_camera_desired_state, mut player_camera_current_state) in &mut player_query {
+        let next_rotation = f32::lerp_angle(
             player_camera_current_state
                 .camera_state
                 .eyes_translation
@@ -297,24 +301,17 @@ pub fn transition_player_camera_cylinder_eyes_rotation_system(
                 .camera_state
                 .eyes_translation
                 .rotation,
-            player_camera_transition_state_variables
-                .eyes_translation
-                .rotation
-                .velocity,
-            0.1,
-            f32::INFINITY,
             time.delta().as_secs_f32(),
         );
 
+        println!(
+            "transition_player_camera_cylinder_eyes_rotation_system {}",
+            next_rotation
+        );
         player_camera_current_state
             .camera_state
             .eyes_translation
-            .rotation = smooth_damp_result.0;
-
-        player_camera_transition_state_variables
-            .eyes_translation
-            .rotation
-            .velocity = smooth_damp_result.1;
+            .rotation = next_rotation;
     }
 }
 
@@ -470,40 +467,25 @@ pub fn transition_player_camera_cylinder_eyes_roll_system(
     }
 }
 
-/// transition player camera eyes current state towards desired state.
-pub fn transition_player_camera_cylinder_eyes_lookat_system(
+/// transition player camera eyes forward current state towards desired state.
+pub fn transition_player_camera_cylinder_eyes_forward_system(
     time: Res<Time>,
     mut player_query: Query<
         (
             &PlayerCameraCylinderTransitionDesiredStateComponent,
-            &mut PlayerCameraCylinderTransitionVariablesComponent,
             &mut PlayerCameraCylinderTransitionCurrentStateComponent,
         ),
         (With<PlayerTagComponent>,),
     >,
 ) {
-    for (
-        player_camera_desired_state,
-        mut player_camera_transition_state_variables,
-        mut player_camera_current_state,
-    ) in &mut player_query
-    {
-        let smooth_damp_result = Vec3::smooth_damp(
-            player_camera_current_state.camera_state.eyes_lookat,
-            player_camera_desired_state.camera_state.eyes_lookat,
-            player_camera_transition_state_variables
-                .eyes_lookat
-                .velocity,
-            0.1,
-            f32::INFINITY,
+    for (player_camera_desired_state, mut player_camera_current_state) in &mut player_query {
+        let next_camera_eyes_forward = Vec3::slerp(
+            &player_camera_current_state.camera_state.eyes_forward,
+            player_camera_desired_state.camera_state.eyes_forward,
             time.delta().as_secs_f32(),
         );
 
-        player_camera_current_state.camera_state.eyes_lookat = smooth_damp_result.0;
-
-        player_camera_transition_state_variables
-            .eyes_lookat
-            .velocity = smooth_damp_result.1;
+        player_camera_current_state.camera_state.eyes_forward = next_camera_eyes_forward;
     }
 }
 
@@ -530,17 +512,19 @@ pub fn apply_player_camera_cylinder_transform_using_current_state_system(
     player.1.translation =
         next_origin_translation + Quat::mul_vec3(origin_rotation, eyes_local_translation);
 
-    player.1.look_at(
-        next_origin_translation + player.0.camera_state.eyes_lookat,
+    let next_transform = Transform::looking_to(
+        *player.1,
+        player.0.camera_state.eyes_forward,
         player.0.camera_state.eyes_up,
     );
 
+    *player.1 = next_transform;
     player.1.rotate_local_z(player.0.camera_state.eyes_roll);
 }
 
 // REGIONEND
 
-pub fn draw_player_camera_cylinder_lookat_gizmos_system(
+pub fn draw_player_camera_cylinder_forward_gizmos_system(
     mut gizmos: Gizmos,
     player_query: Query<
         (
@@ -552,17 +536,9 @@ pub fn draw_player_camera_cylinder_lookat_gizmos_system(
 ) {
     let player = player_query.single();
 
-    gizmos.sphere(
-        player.0.camera_state.origin_translation + player.0.camera_state.eyes_lookat,
-        Quat::IDENTITY,
-        0.5,
-        Color::WHITE,
-    );
-
-    gizmos.sphere(
-        player.1.camera_state.origin_translation + player.1.camera_state.eyes_lookat,
-        Quat::IDENTITY,
-        0.5,
+    gizmos.arrow(
+        player.1.camera_state.origin_translation,
+        player.1.camera_state.eyes_forward,
         Color::YELLOW,
     );
 }

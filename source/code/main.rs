@@ -56,16 +56,16 @@ use math::{
 };
 use player::{
     apply_player_camera_cylinder_transform_using_current_state_system,
-    draw_player_camera_cylinder_gizmos_system, draw_player_camera_cylinder_lookat_gizmos_system,
-    set_player_camera_cylinder_desired_state_eyes_height_and_eyes_lookat_using_input_system,
+    draw_player_camera_cylinder_forward_gizmos_system, draw_player_camera_cylinder_gizmos_system,
     set_player_camera_cylinder_desired_state_eyes_roll_on_mouse_input_system,
+    set_player_camera_cylinder_desired_state_eyes_translation_and_forward_using_input_system,
     set_player_camera_cylinder_desired_state_eyes_up_using_character_system,
     set_player_camera_cylinder_desired_state_origin_rotation_using_character_system,
     set_player_camera_cylinder_desired_state_origin_translation_using_character_system,
     set_player_camera_cylinder_eyes_desired_state_roll_using_input_system,
     transition_player_camera_cylinder_eyes_distance_system,
+    transition_player_camera_cylinder_eyes_forward_system,
     transition_player_camera_cylinder_eyes_height_system,
-    transition_player_camera_cylinder_eyes_lookat_system,
     transition_player_camera_cylinder_eyes_roll_system,
     transition_player_camera_cylinder_eyes_rotation_system,
     transition_player_camera_cylinder_eyes_up_system,
@@ -75,7 +75,11 @@ use player::{
     PlayerCameraCylinderTransitionDesiredStateComponent,
     PlayerCameraCylinderTransitionVariablesComponent, PlayerTagComponent,
 };
-use std::{f32::consts::PI, ops::Mul, time::Duration};
+use std::{
+    f32::consts::{FRAC_PI_2, PI},
+    ops::Mul,
+    time::Duration,
+};
 
 mod character;
 mod math;
@@ -598,11 +602,11 @@ fn spawn_player_system(mut commands: Commands) {
                         origin_up: Vec3::Y,
                         eyes_translation: CylindricalCoordinates {
                             distance: 15.0,
-                            rotation: 0.0,
+                            rotation: FRAC_PI_2,
                             height: 5.0,
                         },
+                        eyes_forward: Vec3::NEG_Z,
                         eyes_up: Vec3::Y,
-                        eyes_lookat: Vec3::new(0.0, 4.0, 0.0),
                         eyes_roll: 0.0,
                     },
                 },
@@ -613,11 +617,11 @@ fn spawn_player_system(mut commands: Commands) {
                         origin_up: Vec3::Y,
                         eyes_translation: CylindricalCoordinates {
                             distance: 15.0,
-                            rotation: 0.0,
+                            rotation: FRAC_PI_2,
                             height: 5.0,
                         },
+                        eyes_forward: Vec3::NEG_Z,
                         eyes_up: Vec3::Y,
-                        eyes_lookat: Vec3::new(0.0, 4.0, 0.0),
                         eyes_roll: 0.0,
                     },
                 },
@@ -629,11 +633,7 @@ fn spawn_player_system(mut commands: Commands) {
                     origin_rotation: SmoothDampTransitionVariables { velocity: 0.0 },
                     eyes_translation: CylinderCoordinates3dSmoothDampTransitionVariables {
                         distance: SmoothDampTransitionVariables { velocity: 0.0 },
-                        rotation: SmoothDampTransitionVariables { velocity: 0.0 },
                         height: SmoothDampTransitionVariables { velocity: 0.0 },
-                    },
-                    eyes_lookat: SmoothDampTransitionVariables {
-                        velocity: Vec3::ZERO,
                     },
                     eyes_roll: SmoothDampTransitionVariables { velocity: 0.0 },
                 },
@@ -744,8 +744,8 @@ fn main() {
         (
             set_player_camera_cylinder_desired_state_origin_translation_using_character_system,
             set_player_camera_cylinder_desired_state_origin_rotation_using_character_system,
+            set_player_camera_cylinder_desired_state_eyes_translation_and_forward_using_input_system,
             set_player_camera_cylinder_desired_state_eyes_up_using_character_system,
-            set_player_camera_cylinder_desired_state_eyes_height_and_eyes_lookat_using_input_system,
             set_player_camera_cylinder_desired_state_eyes_roll_on_mouse_input_system,
             transition_player_camera_cylinder_origin_translation_system,
             transition_player_camera_cylinder_origin_rotation_system,
@@ -753,7 +753,7 @@ fn main() {
             transition_player_camera_cylinder_eyes_height_system,
             transition_player_camera_cylinder_eyes_rotation_system,
             transition_player_camera_cylinder_eyes_roll_system,
-            transition_player_camera_cylinder_eyes_lookat_system,
+            transition_player_camera_cylinder_eyes_forward_system,
             transition_player_camera_cylinder_eyes_up_system,
             apply_player_camera_cylinder_transform_using_current_state_system,
             apply_character_movement_input_using_player_input_system,
@@ -768,7 +768,7 @@ fn main() {
             draw_character_rotation_from_global_to_character_gizmos_system,
             draw_character_transform_gizmos_system,
             draw_character_input_gizmos_system,
-            draw_player_camera_cylinder_lookat_gizmos_system,
+            draw_player_camera_cylinder_forward_gizmos_system,
             draw_player_camera_cylinder_gizmos_system,
             draw_character_body_velocity_gizmos_system,
             draw_character_horizontal_movement_velocity_gizmos_system,

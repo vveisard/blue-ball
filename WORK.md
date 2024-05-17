@@ -1,5 +1,9 @@
 # STORY replace camera lookat with eyes_forward
 
+## RESOURCES
+
+https://docs.rs/bevy/0.13.0/bevy/transform/components/struct.Transform.html#method.looking_to
+
 ## DESIGN
 
 eyes_forward and eyes_up will be used to determine the camera rotation.
