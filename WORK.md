@@ -18,17 +18,11 @@ show-off
 
 ---
 
-# STORY generic camera transform
-
-I've decided that I should create a generic camera interpolation system.
+# STORY camera zones
 
 ## DESIGN
 
-the camera cylinder behavior should apply a desired transform using the cylinder coordinates.
-
-## TODO
-
-remove camera cylinder "desired state"
+I need to have a
 
 ---
 

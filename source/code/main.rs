@@ -24,7 +24,7 @@ use bevy_rapier3d::{
     render::RapierDebugRenderPlugin,
 };
 use camera::{
-    apply_desired_transform_to_transform_system, apply_desired_transform_using_cylinder_coordinates_system, apply_lookat_to_transform_system, set_cylinder_coordinate_for_desired_transform_translation_using_input_system, set_desired_transform_rotation_to_observed_entity_local_up_behavior_system, set_desired_transform_translation_to_observed_entiy_transform_translation_behavior_system, set_lookat_position_to_parent_transform_translation_behavior_system, CameraBodyTagComponent, CameraEyesTagComponent, CylinderCameraBodyBundle, CylinderCameraEyesBundle, CylinderCoordinatesForDesiredTransformTranslationVariablesComponent, DesiredTransformVariablesComponent, LookatVariablesComponent, ObservedEntityVariablesComponent, SetCylinderCoordinateForDesiredTransformTranslationUsingInputBehaviorComponent, SetDesiredTransformRotationToObservedEntityLocalUpBehaviorComponent, SetDesiredTransformTranslationToObservedEntityTransformTranslationBehaviorComponent
+    transition_desired_transform_to_transform_system, apply_desired_transform_using_cylinder_coordinates_system, apply_lookat_to_transform_system, set_cylinder_coordinate_for_desired_transform_translation_using_input_system, set_desired_transform_rotation_to_observed_entity_local_up_behavior_system, set_desired_transform_translation_to_observed_entiy_transform_translation_behavior_system, set_lookat_position_to_parent_transform_translation_behavior_system, CameraBodyTagComponent, CameraEyesTagComponent, CylinderCameraBodyBundle, CylinderCameraEyesBundle, CylinderCoordinatesForDesiredTransformTranslationVariablesComponent, DesiredTransformVariablesComponent, LookatVariablesComponent, ObservedEntityVariablesComponent, SetCylinderCoordinateForDesiredTransformTranslationUsingInputBehaviorComponent, SetDesiredTransformRotationToObservedEntityLocalUpBehaviorComponent, SetDesiredTransformTranslationToObservedEntityTransformTranslationBehaviorComponent
 };
 use character::{
     update_character_body_try_jump_while_on_stage_system,
@@ -697,7 +697,7 @@ fn main() {
         app.add_systems(
         FixedUpdate,
         (
-            apply_desired_transform_to_transform_system,
+            transition_desired_transform_to_transform_system,
             apply_desired_transform_using_cylinder_coordinates_system,
         )
             .run_if(in_state(AppState::Play)),

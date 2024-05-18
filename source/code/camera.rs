@@ -86,23 +86,28 @@ pub struct SetCylinderCoordinateForDesiredTransformTranslationUsingInputBehavior
 
 // REGIONEND
 
-// REGION apply system
+// REGION transition system
 
-pub fn apply_desired_transform_to_transform_system(
+pub fn transition_desired_transform_to_transform_system(
     time: Res<Time>,
     mut query: Query<(&DesiredTransformVariablesComponent, &mut Transform)>,
 ) {
     for (desired_transform_variables, mut transform) in query.iter_mut() {
+        let next_position = desired_transform_variables.desired_transform.translation;
         let next_rotation = Quat::slerp(
             transform.rotation,
             desired_transform_variables.desired_transform.rotation,
             time.delta().as_secs_f32() * 3.33,
         );
 
-        transform.translation = desired_transform_variables.desired_transform.translation;
+        transform.translation = next_position;
         transform.rotation = next_rotation;
     }
 }
+
+// ENDREGION
+
+// REGION apply system
 
 pub fn apply_lookat_to_transform_system(
     mut query: Query<(&LookatVariablesComponent, &mut Transform)>,

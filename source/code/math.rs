@@ -1,5 +1,7 @@
 use bevy::math::{Vec2, Vec3};
 
+// TODO contribute to Bevy
+
 pub struct CylindricalCoordinates {
     // distance to the center
     pub distance: f32,
@@ -53,18 +55,6 @@ impl FromVec3 for CylindricalCoordinates {
 }
 
 // TODO move smooth damp to own module
-
-// variables for smooth damp transition
-pub struct SmoothDampTransitionVariables<T> {
-    pub velocity: T,
-}
-
-// parameters for smooth damp transition of cylinder coordinates 3d.
-pub struct CylinderCoordinates3dSmoothDampTransitionVariables {
-    pub distance: SmoothDampTransitionVariables<f32>,
-    pub rotation: SmoothDampTransitionVariables<f32>,
-    pub height: SmoothDampTransitionVariables<f32>,
-}
 
 pub trait SmoothDamp
 where
