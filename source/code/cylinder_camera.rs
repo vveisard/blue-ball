@@ -7,12 +7,15 @@ use bevy::{
         query::With,
         system::{Query, Res},
     },
+    hierarchy::Parent,
     input::mouse::{
         MouseMotion, MouseWheel,
     },
     math::{Quat, Vec2, Vec3},
     time::Time,
-    transform::components::Transform,
+    transform::components::{
+        GlobalTransform, Transform,
+    },
 };
 
 use crate::math::{
@@ -44,20 +47,23 @@ pub struct CameraEyesTagComponent;
 #[derive(Bundle)]
 pub struct CylinderCameraEyesBundle {
     pub tag: CameraEyesTagComponent,
+    pub observed_entity: ObservedEntityVariablesComponent,
     pub desired_transform_variables: DesiredTransformVariablesComponent,
     pub lookat_variables: LookatVariablesComponent,
+    pub lookat_offset_variables: LookatOffsetVariablesComponent,
     pub cylinder_coordindates_for_desired_transform_translation_variables:
         CylinderCoordinatesForDesiredTransformTranslationVariablesComponent,
+            pub set_lookat_position_to_observed_entity_transform_translation_with_offset_behavior:
+        SetLookatPositionToObservedEntityTransformTranslationWithOffsetBehaviorComponent,
     pub set_cylinder_coordinate_for_desired_transform_translation_angle_using_input_behavior:
         SetCylinderCoordinateForDesiredTransformTranslationUsingInputBehaviorComponent,
-    pub set_lookat_position_to_parent_transform_translation_behavior:
-        SetLookatPositionToParentTransformTranslationBehaviorComponent,
+    pub set_lookat_offset_using_input_behavior: SetLookatOffsetUsingInputBehaviorComponent
 }
 
 // REGION variables component
 
 /// component with variables for desired transform.
-/// ie, the [Transofm] of this entity will be transitioned to [DesiredTransformVariablesComponent][desired_transform].
+/// ie, the [Transform] of this entity will be transitioned to [DesiredTransformVariablesComponent].
 #[derive(Component)]
 pub struct DesiredTransformVariablesComponent
 {
@@ -75,8 +81,16 @@ pub struct ObservedEntityVariablesComponent
 /// component with variables for "lookat".
 #[derive(Component)]
 pub struct LookatVariablesComponent {
-    pub position: Vec3,
+    pub position_relative_to_parent:
+        Vec3,
     pub up: Vec3,
+}
+
+/// component with variables for offset from a base "lookat".
+#[derive(Component)]
+pub struct LookatOffsetVariablesComponent
+{
+    pub local_offset: Vec3,
 }
 
 /// component with cylinder coordinates for [DesiredTransformVariablesComponent].
@@ -99,13 +113,17 @@ pub struct SetDesiredTransformTranslationToObservedEntityTransformTranslationBeh
 #[derive(Component)]
 pub struct SetDesiredTransformRotationToObservedEntityLocalUpBehaviorComponent;
 
-/// component for [set_lookat_position_to_parent_transform_translation_behavior_system].
+/// component for [set_lookat_position_to_observed_entity_transform_translation_with_offset_behavior_system].
 #[derive(Component)]
-pub struct SetLookatPositionToParentTransformTranslationBehaviorComponent;
+pub struct SetLookatPositionToObservedEntityTransformTranslationWithOffsetBehaviorComponent;
 
-/// component for [set_cylinder_coordinate_for_desired_transform_translation_using_input_system].
+/// component for [set_cylinder_coordinates_for_desired_transform_translation_using_input_system].
 #[derive(Component)]
 pub struct SetCylinderCoordinateForDesiredTransformTranslationUsingInputBehaviorComponent;
+
+/// behavior component to update [LookatOffsetVariablesComponent] using input.
+#[derive(Component)]
+pub struct SetLookatOffsetUsingInputBehaviorComponent;
 
 // REGIONEND
 
@@ -158,7 +176,7 @@ pub fn apply_lookat_to_transform_system(
     ) in query.iter_mut()
     {
         transform.look_at(
-            lookat_variables.position,
+            lookat_variables.position_relative_to_parent,
             lookat_variables.up,
         );
     }
@@ -248,18 +266,35 @@ pub fn set_desired_transform_rotation_to_observed_entity_local_up_behavior_syste
     }
 }
 
-/// set [LookatVariablesComponent] on [SetLookatPositionToParentTransformTranslationBehaviorComponent].
-pub fn set_lookat_position_to_parent_transform_translation_behavior_system(
+/// set [LookatVariablesComponent] on [SetLookatPositionToObservedEntityTransformTranslationWithOffsetBehaviorComponent] using [LookatOffsetVariablesComponent].
+pub fn set_lookat_position_to_observed_entity_transform_translation_with_offset_behavior_system(
     mut query: Query<
-        (&mut LookatVariablesComponent,),
-        With<SetLookatPositionToParentTransformTranslationBehaviorComponent>,
+        (&mut LookatVariablesComponent, &LookatOffsetVariablesComponent, &ObservedEntityVariablesComponent, &Parent),
+        With<SetLookatPositionToObservedEntityTransformTranslationWithOffsetBehaviorComponent>,
     >,
+    observed_query: Query<(
+        &GlobalTransform,
+    )>,
 ) {
-    for mut lookat_variables in
+    for (
+      mut lookat_variables,  lookat_offset_variables,       &ObservedEntityVariablesComponent {
+            entity: observed_entity,
+        },
+        parent
+      ) in
         query.iter_mut()
     {
-        lookat_variables.0.position =
-            Vec3::ZERO;
+        let parent_entity = observed_query.get(**parent).expect("Parent entity desspawned!");
+
+        let observed_entity = observed_query
+            .get(observed_entity)
+            .expect("Observed entity despawned!");
+
+        let observed_entity_global_translation = observed_entity.0.translation();
+        let parent_entity_global_translation = parent_entity.0.translation();
+        let observed_entity_translation_relative_to_parent = observed_entity_global_translation - parent_entity_global_translation;
+
+        lookat_variables.position_relative_to_parent = observed_entity_translation_relative_to_parent + lookat_offset_variables.local_offset;
     }
 }
 
@@ -274,30 +309,28 @@ pub fn set_cylinder_coordinates_for_desired_transform_translation_using_input_sy
         With<SetCylinderCoordinateForDesiredTransformTranslationUsingInputBehaviorComponent>,
     >,
 ) {
+    let mut input = Vec2::ZERO;
+    for mouse_event in
+        mouse_motion_events.read()
+    {
+        input.x +=
+            mouse_event.delta.x * 0.001;
+        input.y +=
+            mouse_event.delta.y * 0.001;
+    }
+
+    let mut zoom_input: f32 = 0.0;
+    for mouse_event in
+        mouse_wheel_events.read()
+    {
+        zoom_input +=
+            mouse_event.y * 0.1;
+    }
+
     for mut
     desired_cylinder_coordinates_for_transform in
         query.iter_mut()
     {
-        let mut input = Vec2::ZERO;
-        for mouse_event in
-            mouse_motion_events.read()
-        {
-            input.x +=
-                mouse_event.delta.x
-                    * 0.001;
-            input.y +=
-                mouse_event.delta.y
-                    * 0.001;
-        }
-
-        let mut zoom_input: f32 = 0.0;
-        for mouse_event in
-            mouse_wheel_events.read()
-        {
-            zoom_input +=
-                mouse_event.y * 0.1;
-        }
-
         desired_cylinder_coordinates_for_transform
             .0
             .cylinder_coordindates
@@ -311,6 +344,32 @@ pub fn set_cylinder_coordinates_for_desired_transform_translation_using_input_sy
             .0
             .cylinder_coordindates
             .height -= input.y * 0.5;
+    }
+}
+
+/// set [LookatOffsetVariablesComponent] on [SetLookatOffsetUsingInputBehaviorComponent].
+pub fn set_lookat_offset_using_input_system(
+    mut mouse_motion_events: EventReader<MouseMotion>,
+    mut query: Query<
+        (&mut LookatOffsetVariablesComponent,),
+        With<SetLookatOffsetUsingInputBehaviorComponent>,
+    >,
+) {
+    let mut input = Vec2::ZERO;
+    for mouse_event in
+        mouse_motion_events.read()
+    {
+        input.y +=
+            mouse_event.delta.y * 0.001;
+    }
+
+    for mut lookat_offset_variables in
+        query.iter_mut()
+    {
+        lookat_offset_variables
+            .0
+            .local_offset
+            .y += input.y * 0.2
     }
 }
 

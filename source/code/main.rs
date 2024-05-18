@@ -24,7 +24,7 @@ use bevy_rapier3d::{
     render::RapierDebugRenderPlugin,
 };
 use cylinder_camera::{
-    transition_desired_transform_to_transform_system, apply_desired_transform_using_cylinder_coordinates_system, apply_lookat_to_transform_system, set_cylinder_coordinates_for_desired_transform_translation_using_input_system, set_desired_transform_rotation_to_observed_entity_local_up_behavior_system, set_desired_transform_translation_to_observed_entiy_transform_translation_behavior_system, set_lookat_position_to_parent_transform_translation_behavior_system, CameraBodyTagComponent, CameraEyesTagComponent, CylinderCameraBodyBundle, CylinderCameraEyesBundle, CylinderCoordinatesForDesiredTransformTranslationVariablesComponent, DesiredTransformVariablesComponent, LookatVariablesComponent, ObservedEntityVariablesComponent, SetCylinderCoordinateForDesiredTransformTranslationUsingInputBehaviorComponent, SetDesiredTransformRotationToObservedEntityLocalUpBehaviorComponent, SetDesiredTransformTranslationToObservedEntityTransformTranslationBehaviorComponent
+    apply_desired_transform_using_cylinder_coordinates_system, apply_lookat_to_transform_system, set_cylinder_coordinates_for_desired_transform_translation_using_input_system, set_desired_transform_rotation_to_observed_entity_local_up_behavior_system, set_desired_transform_translation_to_observed_entiy_transform_translation_behavior_system, set_lookat_offset_using_input_system, set_lookat_position_to_observed_entity_transform_translation_with_offset_behavior_system, transition_desired_transform_to_transform_system, CameraBodyTagComponent, CameraEyesTagComponent, CylinderCameraBodyBundle, CylinderCameraEyesBundle, CylinderCoordinatesForDesiredTransformTranslationVariablesComponent, DesiredTransformVariablesComponent, LookatOffsetVariablesComponent, LookatVariablesComponent, ObservedEntityVariablesComponent, SetCylinderCoordinateForDesiredTransformTranslationUsingInputBehaviorComponent, SetDesiredTransformRotationToObservedEntityLocalUpBehaviorComponent, SetDesiredTransformTranslationToObservedEntityTransformTranslationBehaviorComponent, SetLookatOffsetUsingInputBehaviorComponent, SetLookatPositionToObservedEntityTransformTranslationWithOffsetBehaviorComponent
 };
 use character::{
     update_character_body_try_jump_while_on_stage_system,
@@ -557,6 +557,8 @@ fn spawn_camera_system(
     mut commands: Commands,
     query: Query<(Entity,), With<CharacterTagComponent>>,
 ) {
+let next_observed_character_entity = query.get_single().unwrap().0;
+
     // camera
     commands
         .spawn((CylinderCameraBodyBundle {
@@ -565,7 +567,7 @@ fn spawn_camera_system(
                 desired_transform: Transform::from_xyz(0.0, 0.0, 0.0),
             },
             observed_entity_variables: ObservedEntityVariablesComponent {
-              entity: query.get_single().unwrap().0
+              entity: next_observed_character_entity
             },
             set_desired_transform_translation_to_observed_entity_transform_translation: SetDesiredTransformTranslationToObservedEntityTransformTranslationBehaviorComponent,
             set_desired_transform_local_up_to_observed_entity_local_up: SetDesiredTransformRotationToObservedEntityLocalUpBehaviorComponent,
@@ -579,16 +581,25 @@ fn spawn_camera_system(
                 desired_transform: Transform::from_xyz(0.0, 0.0, 0.0),
 
                 } , lookat_variables: LookatVariablesComponent {
-                    position: Vec3::ZERO,
+                    position_relative_to_parent: Vec3::ZERO,
                     up: Vec3::Y,
-                }, cylinder_coordindates_for_desired_transform_translation_variables: CylinderCoordinatesForDesiredTransformTranslationVariablesComponent {
+                }, 
+                observed_entity: ObservedEntityVariablesComponent {
+                      entity: next_observed_character_entity
+                    },
+                lookat_offset_variables: LookatOffsetVariablesComponent {
+                  local_offset: Vec3::ZERO
+                },
+                cylinder_coordindates_for_desired_transform_translation_variables: CylinderCoordinatesForDesiredTransformTranslationVariablesComponent {
                     cylinder_coordindates: CylindricalCoordinates {
                         distance: 25.0,
                         rotation: 0.0,
                         height: 5.0,
                     },
                 }, set_cylinder_coordinate_for_desired_transform_translation_angle_using_input_behavior: SetCylinderCoordinateForDesiredTransformTranslationUsingInputBehaviorComponent,
-                    set_lookat_position_to_parent_transform_translation_behavior: cylinder_camera::SetLookatPositionToParentTransformTranslationBehaviorComponent, },
+                    set_lookat_position_to_observed_entity_transform_translation_with_offset_behavior: SetLookatPositionToObservedEntityTransformTranslationWithOffsetBehaviorComponent,
+                    set_lookat_offset_using_input_behavior: SetLookatOffsetUsingInputBehaviorComponent,
+                     },
                 Camera3dBundle {
                     transform: Transform::from_xyz(0.0, 0., 0.0)
                         .looking_at(Vec3::new(0., 0., 0.), Vec3::Y),
@@ -699,6 +710,7 @@ fn main() {
         (
             transition_desired_transform_to_transform_system,
             apply_desired_transform_using_cylinder_coordinates_system,
+            set_lookat_position_to_observed_entity_transform_translation_with_offset_behavior_system,
         )
             .run_if(in_state(AppState::Play)),
     );
@@ -710,7 +722,7 @@ fn main() {
             apply_lookat_to_transform_system,
             set_desired_transform_translation_to_observed_entiy_transform_translation_behavior_system,
             set_desired_transform_rotation_to_observed_entity_local_up_behavior_system,
-            set_lookat_position_to_parent_transform_translation_behavior_system,
+            set_lookat_offset_using_input_system,
             set_cylinder_coordinates_for_desired_transform_translation_using_input_system
         )
             .run_if(in_state(AppState::Play)),
