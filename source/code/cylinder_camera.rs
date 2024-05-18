@@ -21,7 +21,7 @@ use bevy::{
 
 use crate::math::{
     CylindricalCoordinates,
-    FromCylindrical,
+    FromCylindrical, Slerp,
 };
 
 /// Tag component for "camera eyes" entity.
@@ -35,6 +35,7 @@ pub struct ActorCameraBundle {
     pub observed_entity: ObservedEntityVariablesComponent,
     pub desired_transform_variables: DesiredTransformVariablesComponent,
     pub lookat_variables: LookatVariablesComponent,
+    pub desired_lookat_variables: DesiredLookatVariablesComponent,
     pub lookat_offset_variables: LookatOffsetVariablesComponent,
 }
 
@@ -50,14 +51,22 @@ pub struct CylinderActorCameraBundle {
         SetCylinderCoordinateForDesiredTransformTranslationUsingInputBehaviorComponent,
   pub set_desired_parent_transform_translation_to_observed_entity_transform_behavior: SetDesiredTransformTranslationToObservedEntityTransformTranslationBehaviorComponent,
   pub set_desired_parent_transform_rotation_to_observed_entity_local_up_behavior: SetDesiredTransformRotationToObservedEntityLocalUpBehaviorComponent,
-  pub set_lookat_position_to_observed_entity_transform_translation_with_offset_behavior:
-        SetLookatPositionToObservedEntityTransformTranslationWithOffsetBehaviorComponent,
-  pub set_lookat_up_to_observed_entity_transform_local_up_with_offset_behavior:
-        SetLookatUpToObservedEntityTransformLocalUpWithOffsetBehaviorComponent,
-    pub set_lookat_offset_using_input_behavior: SetLookatOffsetUsingInputBehaviorComponent
+  pub set_desired_lookat_position_to_observed_entity_transform_translation_with_offset_behavior:
+        SetDesiredLookatPositionToObservedEntityTransformTranslationWithOffsetBehaviorComponent,
+  pub set_desired_lookat_up_to_observed_entity_transform_local_up_with_offset_behavior:
+        SetDesiredLookatUpToObservedEntityTransformLocalUpWithOffsetBehaviorComponent,
+  pub set_lookat_offset_using_input_behavior: SetLookatOffsetUsingInputBehaviorComponent
 }
 
 // REGION variables component
+
+/// component with variables for an observed entity.
+/// ie, this entity is observing other.
+#[derive(Component)]
+pub struct ObservedEntityVariablesComponent
+{
+    pub entity: Entity,
+}
 
 /// quasi-parent
 #[derive(Component)]
@@ -81,17 +90,16 @@ pub struct DesiredTransformVariablesComponent
     pub desired_transform: Transform,
 }
 
-/// component with variables for an observed entity.
-/// ie, this entity is observing other.
-#[derive(Component)]
-pub struct ObservedEntityVariablesComponent
-{
-    pub entity: Entity,
-}
-
 /// component with variables for "lookat".
 #[derive(Component)]
 pub struct LookatVariablesComponent {
+    pub position: Vec3,
+    pub up: Vec3,
+}
+/// component with variables for "lookat".
+#[derive(Component)]
+pub struct DesiredLookatVariablesComponent
+{
     pub position: Vec3,
     pub up: Vec3,
 }
@@ -125,22 +133,85 @@ pub struct SetDesiredTransformRotationToObservedEntityLocalUpBehaviorComponent;
 
 /// component for [set_lookat_position_to_observed_entity_transform_translation_with_offset_behavior_system].
 #[derive(Component)]
-pub struct SetLookatPositionToObservedEntityTransformTranslationWithOffsetBehaviorComponent;
+pub struct SetDesiredLookatPositionToObservedEntityTransformTranslationWithOffsetBehaviorComponent;
 
 #[derive(Component)]
-pub struct SetLookatUpToObservedEntityTransformLocalUpWithOffsetBehaviorComponent;
-
-/// component for [set_cylinder_coordinates_for_desired_transform_translation_using_input_system].
-#[derive(Component)]
-pub struct SetCylinderCoordinateForDesiredTransformTranslationUsingInputBehaviorComponent;
+pub struct SetDesiredLookatUpToObservedEntityTransformLocalUpWithOffsetBehaviorComponent;
 
 /// behavior component to update [LookatOffsetVariablesComponent] using input.
 #[derive(Component)]
 pub struct SetLookatOffsetUsingInputBehaviorComponent;
 
+/// component for [set_cylinder_coordinates_for_desired_transform_translation_using_input_system].
+#[derive(Component)]
+pub struct SetCylinderCoordinateForDesiredTransformTranslationUsingInputBehaviorComponent;
+
 // REGIONEND
 
 // REGION transition system
+
+/// transition [Transform] using [DesiredTransformVariablesComponent].
+pub fn transition_transform_to_desired_transform_system(
+    time: Res<Time>,
+    mut query: Query<(&mut Transform, &DesiredTransformVariablesComponent)>,
+) {
+    for (
+        mut transform,
+        desired_transform_variables,
+    ) in query.iter_mut()
+    {
+        let next_position = Vec3::lerp(
+            transform.translation,
+            desired_transform_variables
+                .desired_transform
+                .translation,
+            time.delta().as_secs_f32()
+                * 3.33,
+        );
+        let next_rotation = Quat::slerp(
+            transform.rotation,
+            desired_transform_variables
+                .desired_transform
+                .rotation,
+            time.delta().as_secs_f32()
+                * 3.33,
+        );
+
+        transform.translation =
+            next_position;
+        transform.rotation =
+            next_rotation;
+    }
+}
+
+pub fn transition_lookat_variables_to_desired_lookat_variables_system(
+    time: Res<Time>,
+    mut query: Query<(&mut LookatVariablesComponent, &DesiredLookatVariablesComponent)>,
+) {
+    for (
+        mut lookat_variables,
+        desired_lookat_variables,
+    ) in query.iter_mut()
+    {
+        let next_position = Vec3::lerp(
+            lookat_variables.position,
+            desired_lookat_variables
+                .position,
+            time.delta().as_secs_f32()
+                * 3.33,
+        );
+        let next_up = Vec3::slerp(
+            &lookat_variables.up,
+            desired_lookat_variables.up,
+            time.delta().as_secs_f32()
+                * 3.33,
+        );
+
+        lookat_variables.position =
+            next_position;
+        lookat_variables.up = next_up;
+    }
+}
 
 /// transition [ParentTransformVariablesComponent] using [DesiredTransformParentVariablesComponent].
 pub fn transition_parent_transform_to_desired_parent_transform_system(
@@ -180,42 +251,6 @@ pub fn transition_parent_transform_to_desired_parent_transform_system(
         parent_transform
             .transform
             .rotation = next_rotation;
-    }
-}
-
-// ENDREGION
-
-/// transition [Transform] using [DesiredTransformVariablesComponent].
-pub fn transition_transform_to_desired_transform_system(
-    time: Res<Time>,
-    mut query: Query<(&mut Transform, &DesiredTransformVariablesComponent)>,
-) {
-    for (
-        mut transform,
-        desired_transform_variables,
-    ) in query.iter_mut()
-    {
-        let next_position = Vec3::lerp(
-            transform.translation,
-            desired_transform_variables
-                .desired_transform
-                .translation,
-            time.delta().as_secs_f32()
-                * 3.33,
-        );
-        let next_rotation = Quat::slerp(
-            transform.rotation,
-            desired_transform_variables
-                .desired_transform
-                .rotation,
-            time.delta().as_secs_f32()
-                * 3.33,
-        );
-
-        transform.translation =
-            next_position;
-        transform.rotation =
-            next_rotation;
     }
 }
 
@@ -337,18 +372,19 @@ pub fn set_desired_parent_transform_rotation_to_observed_entity_local_up_behavio
     }
 }
 
-/// set [LookatVariablesComponent] on [SetLookatPositionToObservedEntityTransformTranslationWithOffsetBehaviorComponent] using [LookatOffsetVariablesComponent].
-pub fn set_lookat_position_to_observed_entity_transform_translation_with_offset_behavior_system(
+pub fn set_desired_lookat_position_to_observed_entity_transform_translation_with_offset_behavior_system(
     mut query: Query<
-        (&mut LookatVariablesComponent, &LookatOffsetVariablesComponent, &ObservedEntityVariablesComponent),
-        With<SetLookatPositionToObservedEntityTransformTranslationWithOffsetBehaviorComponent>,
+        (&mut DesiredLookatVariablesComponent, &LookatOffsetVariablesComponent, &ObservedEntityVariablesComponent),
+        With<SetDesiredLookatPositionToObservedEntityTransformTranslationWithOffsetBehaviorComponent>,
     >,
     observed_query: Query<(
         &GlobalTransform,
     )>,
 ) {
     for (
-      mut lookat_variables,  lookat_offset_variables,       &ObservedEntityVariablesComponent {
+      mut lookat_variables,
+      lookat_offset_variables,       
+      &ObservedEntityVariablesComponent {
             entity: observed_entity,
         },
       ) in
@@ -365,7 +401,30 @@ pub fn set_lookat_position_to_observed_entity_transform_translation_with_offset_
     }
 }
 
-/// set [CylinderCoordinatesForDesiredTransformTranslationVariablesComponent] on [SetCylinderCoordinateForDesiredTransformTranslationUsingInputBehaviorComponent].
+pub fn set_desired_lookat_up_to_observed_entity_transform_local_up_with_offset_behavior(
+    mut query: Query<
+        (&mut DesiredLookatVariablesComponent, &ObservedEntityVariablesComponent),
+        With<SetDesiredLookatUpToObservedEntityTransformLocalUpWithOffsetBehaviorComponent>,
+    >,
+    observed_query: Query<
+        (&Transform,),
+    >,
+) {
+    for (
+        mut lookat_variables,
+                &ObservedEntityVariablesComponent {
+            entity: observed_entity,
+        },
+    ) in query.iter_mut()
+    {
+        let observed_entity_transform = observed_query
+            .get(observed_entity)
+            .expect("Observed entity despawned!");
+
+        lookat_variables.up = *observed_entity_transform.0.local_y();
+    }
+}
+
 pub fn set_cylinder_coordinates_for_desired_transform_translation_using_input_system(
     mut mouse_motion_events: EventReader<MouseMotion>,
     mut mouse_wheel_events: EventReader<
@@ -437,31 +496,6 @@ pub fn set_lookat_offset_using_input_system(
             .0
             .translation_wrt_observed
             .y += input.y * 0.2
-    }
-}
-
-/// Ssytem to set [LookatVariablesComponent] up to the up of the transform of the [ObservedEntityVariablesComponent].
-pub fn set_lookat_up_to_observed_entity_transform_local_up_with_offset_behavior(
-    mut query: Query<
-        (&mut LookatVariablesComponent, &ObservedEntityVariablesComponent),
-        With<SetLookatUpToObservedEntityTransformLocalUpWithOffsetBehaviorComponent>,
-    >,
-    observed_query: Query<
-        (&Transform,),
-    >,
-) {
-    for (
-        mut lookat_variables,
-                &ObservedEntityVariablesComponent {
-            entity: observed_entity,
-        },
-    ) in query.iter_mut()
-    {
-        let observed_entity_transform = observed_query
-            .get(observed_entity)
-            .expect("Observed entity despawned!");
-
-        lookat_variables.up = *observed_entity_transform.0.local_y();
     }
 }
 

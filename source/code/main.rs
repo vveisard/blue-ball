@@ -23,7 +23,7 @@ use bevy_rapier3d::{
     render::RapierDebugRenderPlugin,
 };
 use cylinder_camera::{
-    apply_desired_transform_using_cylinder_coordinates_system, apply_lookat_to_transform_system, draw_camera_lookat_gizmos, set_cylinder_coordinates_for_desired_transform_translation_using_input_system, set_desired_parent_transform_rotation_to_observed_entity_local_up_behavior_system, set_desired_parent_transform_translation_to_observed_entiy_transform_translation_behavior_system, set_lookat_offset_using_input_system, set_lookat_position_to_observed_entity_transform_translation_with_offset_behavior_system, set_lookat_up_to_observed_entity_transform_local_up_with_offset_behavior, transition_parent_transform_to_desired_parent_transform_system, transition_transform_to_desired_transform_system, ActorCameraBundle, CameraEyesTagComponent, CylinderActorCameraBundle, CylinderCoordinatesForDesiredTransformTranslationVariablesComponent, DesiredTransformParentVariablesComponent, DesiredTransformVariablesComponent, LookatOffsetVariablesComponent, LookatVariablesComponent, ObservedEntityVariablesComponent, ParentTransformVariablesComponent, SetCylinderCoordinateForDesiredTransformTranslationUsingInputBehaviorComponent, SetDesiredTransformRotationToObservedEntityLocalUpBehaviorComponent, SetDesiredTransformTranslationToObservedEntityTransformTranslationBehaviorComponent, SetLookatOffsetUsingInputBehaviorComponent, SetLookatPositionToObservedEntityTransformTranslationWithOffsetBehaviorComponent, SetLookatUpToObservedEntityTransformLocalUpWithOffsetBehaviorComponent
+    apply_desired_transform_using_cylinder_coordinates_system, apply_lookat_to_transform_system, draw_camera_lookat_gizmos, set_cylinder_coordinates_for_desired_transform_translation_using_input_system, set_desired_lookat_position_to_observed_entity_transform_translation_with_offset_behavior_system, set_desired_lookat_up_to_observed_entity_transform_local_up_with_offset_behavior, set_desired_parent_transform_rotation_to_observed_entity_local_up_behavior_system, set_desired_parent_transform_translation_to_observed_entiy_transform_translation_behavior_system, set_lookat_offset_using_input_system, transition_lookat_variables_to_desired_lookat_variables_system, transition_parent_transform_to_desired_parent_transform_system, transition_transform_to_desired_transform_system, ActorCameraBundle, CameraEyesTagComponent, CylinderActorCameraBundle, CylinderCoordinatesForDesiredTransformTranslationVariablesComponent, DesiredLookatVariablesComponent, DesiredTransformParentVariablesComponent, DesiredTransformVariablesComponent, LookatOffsetVariablesComponent, LookatVariablesComponent, ObservedEntityVariablesComponent, ParentTransformVariablesComponent, SetCylinderCoordinateForDesiredTransformTranslationUsingInputBehaviorComponent, SetDesiredLookatPositionToObservedEntityTransformTranslationWithOffsetBehaviorComponent, SetDesiredLookatUpToObservedEntityTransformLocalUpWithOffsetBehaviorComponent, SetDesiredTransformRotationToObservedEntityLocalUpBehaviorComponent, SetDesiredTransformTranslationToObservedEntityTransformTranslationBehaviorComponent, SetLookatOffsetUsingInputBehaviorComponent
 };
 use character::{
     update_character_body_try_jump_while_on_stage_system,
@@ -561,16 +561,22 @@ let next_observed_character = query.get_single().unwrap();
     // camera
     commands
         .spawn((
-                ActorCameraBundle { tag: CameraEyesTagComponent, desired_transform_variables: DesiredTransformVariablesComponent {
-                desired_transform: Transform::from_xyz(0.0, 0.0, 0.0),
-
-                } , lookat_variables: LookatVariablesComponent {
-                    position: Vec3::ZERO,
-                    up: Vec3::Y,
+              ActorCameraBundle { 
+                tag: CameraEyesTagComponent, 
+                desired_transform_variables: DesiredTransformVariablesComponent {
+                  desired_transform: Transform::from_xyz(0.0, 0.0, 0.0),
+                },
+                desired_lookat_variables: DesiredLookatVariablesComponent {
+                  position: Vec3::new(0.0, 100.0, 0.0),
+                  up: Vec3::Y,
+                }, 
+                lookat_variables: LookatVariablesComponent {
+                  position: Vec3::new(0.0, 100.0, 0.0),
+                  up: Vec3::Y,
                 }, 
                 observed_entity: ObservedEntityVariablesComponent {
-                      entity: next_observed_character.0
-                    },
+                  entity: next_observed_character.0
+                },
                 lookat_offset_variables: LookatOffsetVariablesComponent {
                   translation_wrt_observed: Vec3::ZERO
                 },
@@ -584,7 +590,7 @@ let next_observed_character = query.get_single().unwrap();
                 },
                 cylinder_coordindates_for_desired_transform_translation_variables: CylinderCoordinatesForDesiredTransformTranslationVariablesComponent {
                     cylinder_coordindates: CylindricalCoordinates {
-                                              distance: 25.0,
+                        distance: 25.0,
                         rotation: 0.0,
                         height: 5.0,
                     },
@@ -592,9 +598,9 @@ let next_observed_character = query.get_single().unwrap();
                 set_desired_parent_transform_translation_to_observed_entity_transform_behavior: SetDesiredTransformTranslationToObservedEntityTransformTranslationBehaviorComponent,
                 set_desired_parent_transform_rotation_to_observed_entity_local_up_behavior: SetDesiredTransformRotationToObservedEntityLocalUpBehaviorComponent,
                 set_cylinder_coordinate_for_desired_transform_translation_angle_using_input_behavior: SetCylinderCoordinateForDesiredTransformTranslationUsingInputBehaviorComponent,
-                set_lookat_position_to_observed_entity_transform_translation_with_offset_behavior: SetLookatPositionToObservedEntityTransformTranslationWithOffsetBehaviorComponent,
                 set_lookat_offset_using_input_behavior: SetLookatOffsetUsingInputBehaviorComponent,
-                set_lookat_up_to_observed_entity_transform_local_up_with_offset_behavior: SetLookatUpToObservedEntityTransformLocalUpWithOffsetBehaviorComponent,
+                set_desired_lookat_position_to_observed_entity_transform_translation_with_offset_behavior: SetDesiredLookatPositionToObservedEntityTransformTranslationWithOffsetBehaviorComponent,
+                set_desired_lookat_up_to_observed_entity_transform_local_up_with_offset_behavior: SetDesiredLookatUpToObservedEntityTransformLocalUpWithOffsetBehaviorComponent,
             },
                 Camera3dBundle {
                     transform: Transform::from_xyz(0.0, 0., 0.0)
@@ -705,8 +711,9 @@ fn main() {
         (
             transition_transform_to_desired_transform_system,
             transition_parent_transform_to_desired_parent_transform_system,
+            transition_lookat_variables_to_desired_lookat_variables_system,
             apply_desired_transform_using_cylinder_coordinates_system,
-            set_lookat_position_to_observed_entity_transform_translation_with_offset_behavior_system,
+            set_desired_lookat_position_to_observed_entity_transform_translation_with_offset_behavior_system,
         )
             .run_if(in_state(AppState::Play)),
     );
@@ -719,7 +726,7 @@ fn main() {
             set_desired_parent_transform_translation_to_observed_entiy_transform_translation_behavior_system,
             set_desired_parent_transform_rotation_to_observed_entity_local_up_behavior_system,
             set_lookat_offset_using_input_system,
-            set_lookat_up_to_observed_entity_transform_local_up_with_offset_behavior,
+            set_desired_lookat_up_to_observed_entity_transform_local_up_with_offset_behavior,
             set_cylinder_coordinates_for_desired_transform_translation_using_input_system
         )
             .run_if(in_state(AppState::Play)),
