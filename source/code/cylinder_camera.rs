@@ -7,17 +7,24 @@ use bevy::{
         query::With,
         system::{Query, Res},
     },
-    input::mouse::{MouseMotion, MouseWheel},
+    input::mouse::{
+        MouseMotion, MouseWheel,
+    },
     math::{Quat, Vec2, Vec3},
     time::Time,
     transform::components::Transform,
 };
 
-use crate::math::{CylindricalCoordinates, FromCylindrical};
+use crate::math::{
+    CylindricalCoordinates,
+    FromCylindrical,
+};
 
+/// Tag component for "camera body" entity.
 #[derive(Component)]
 pub struct CameraBodyTagComponent;
 
+/// bundle for "cylinder camera body" entity.
 #[derive(Bundle)]
 pub struct CylinderCameraBodyBundle {
     pub tag: CameraBodyTagComponent,
@@ -29,9 +36,11 @@ pub struct CylinderCameraBodyBundle {
         SetDesiredTransformRotationToObservedEntityLocalUpBehaviorComponent,
 }
 
+/// Tag component for "camera eyes" entity.
 #[derive(Component)]
 pub struct CameraEyesTagComponent;
 
+/// bundle for "cylinder camera eyes" entity
 #[derive(Bundle)]
 pub struct CylinderCameraEyesBundle {
     pub tag: CameraEyesTagComponent,
@@ -47,40 +56,54 @@ pub struct CylinderCameraEyesBundle {
 
 // REGION variables component
 
+/// component with variables for desired transform.
+/// ie, the [Transofm] of this entity will be transitioned to [DesiredTransformVariablesComponent][desired_transform].
 #[derive(Component)]
-pub struct DesiredTransformVariablesComponent {
+pub struct DesiredTransformVariablesComponent
+{
     pub desired_transform: Transform,
 }
 
+/// component with variables for an observed entity.
+/// ie, this entity is observing other.
 #[derive(Component)]
-pub struct ObservedEntityVariablesComponent {
+pub struct ObservedEntityVariablesComponent
+{
     pub entity: Entity,
 }
 
+/// component with variables for "lookat".
 #[derive(Component)]
 pub struct LookatVariablesComponent {
     pub position: Vec3,
     pub up: Vec3,
 }
 
+/// component with cylinder coordinates for [DesiredTransformVariablesComponent].
 #[derive(Component)]
-pub struct CylinderCoordinatesForDesiredTransformTranslationVariablesComponent {
-    pub cylinder_coordindates: CylindricalCoordinates,
+pub struct CylinderCoordinatesForDesiredTransformTranslationVariablesComponent
+{
+    pub cylinder_coordindates:
+        CylindricalCoordinates,
 }
 
 // REGIONEND
 
 // REGION behavior component
 
+/// component for [set_desired_transform_translation_to_observed_entiy_transform_translation_behavior_system].
 #[derive(Component)]
 pub struct SetDesiredTransformTranslationToObservedEntityTransformTranslationBehaviorComponent;
 
+/// component for [set_desired_transform_rotation_to_observed_entity_local_up_behavior_system].
 #[derive(Component)]
 pub struct SetDesiredTransformRotationToObservedEntityLocalUpBehaviorComponent;
 
+/// component for [set_lookat_position_to_parent_transform_translation_behavior_system].
 #[derive(Component)]
 pub struct SetLookatPositionToParentTransformTranslationBehaviorComponent;
 
+/// component for [set_cylinder_coordinate_for_desired_transform_translation_using_input_system].
 #[derive(Component)]
 pub struct SetCylinderCoordinateForDesiredTransformTranslationUsingInputBehaviorComponent;
 
@@ -88,20 +111,33 @@ pub struct SetCylinderCoordinateForDesiredTransformTranslationUsingInputBehavior
 
 // REGION transition system
 
+/// transition [Transform] using [DesiredTransformVariablesComponent].
 pub fn transition_desired_transform_to_transform_system(
     time: Res<Time>,
-    mut query: Query<(&DesiredTransformVariablesComponent, &mut Transform)>,
+    mut query: Query<(&mut Transform, &DesiredTransformVariablesComponent)>,
 ) {
-    for (desired_transform_variables, mut transform) in query.iter_mut() {
-        let next_position = desired_transform_variables.desired_transform.translation;
+    for (
+        mut transform,
+        desired_transform_variables,
+    ) in query.iter_mut()
+    {
+        let next_position =
+            desired_transform_variables
+                .desired_transform
+                .translation;
         let next_rotation = Quat::slerp(
             transform.rotation,
-            desired_transform_variables.desired_transform.rotation,
-            time.delta().as_secs_f32() * 3.33,
+            desired_transform_variables
+                .desired_transform
+                .rotation,
+            time.delta().as_secs_f32()
+                * 3.33,
         );
 
-        transform.translation = next_position;
-        transform.rotation = next_rotation;
+        transform.translation =
+            next_position;
+        transform.rotation =
+            next_rotation;
     }
 }
 
@@ -109,28 +145,44 @@ pub fn transition_desired_transform_to_transform_system(
 
 // REGION apply system
 
+/// update [Transform] using [LookatVariablesComponent].
 pub fn apply_lookat_to_transform_system(
-    mut query: Query<(&LookatVariablesComponent, &mut Transform)>,
+    mut query: Query<(
+        &mut Transform,
+        &LookatVariablesComponent,
+    )>,
 ) {
-    for (lookat_variables, mut transform) in query.iter_mut() {
-        transform.look_at(lookat_variables.position, lookat_variables.up);
+    for (
+        mut transform,
+        lookat_variables,
+    ) in query.iter_mut()
+    {
+        transform.look_at(
+            lookat_variables.position,
+            lookat_variables.up,
+        );
     }
 }
 
+/// update [DesiredTransformVariablesComponent] using [CylinderCoordinatesForDesiredTransformTranslationVariablesComponent].
 pub fn apply_desired_transform_using_cylinder_coordinates_system(
     mut query: Query<(
-        &CylinderCoordinatesForDesiredTransformTranslationVariablesComponent,
         &mut DesiredTransformVariablesComponent,
+        &CylinderCoordinatesForDesiredTransformTranslationVariablesComponent,
     )>,
 ) {
-    for (cylinder_coordinates_for_desired_transform, mut desired_transform_variables) in
-        query.iter_mut()
+    for (
+        mut desired_transform_variables,
+        cylinder_coordinates_for_desired_transform,
+    ) in query.iter_mut()
     {
         let next = Vec3::from_cylindrical(
             &cylinder_coordinates_for_desired_transform.cylinder_coordindates,
         );
 
-        desired_transform_variables.desired_transform.translation = next;
+        desired_transform_variables
+            .desired_transform
+            .translation = next;
     }
 }
 
@@ -138,21 +190,24 @@ pub fn apply_desired_transform_using_cylinder_coordinates_system(
 
 // REGION behavior system
 
+/// set [DesiredTransformVariablesComponent] using [ObservedEntityVariablesComponent].
 pub fn set_desired_transform_translation_to_observed_entiy_transform_translation_behavior_system(
     mut query: Query<
         (
-            &ObservedEntityVariablesComponent,
             &mut DesiredTransformVariablesComponent,
+            &ObservedEntityVariablesComponent,
         ),
         With<SetDesiredTransformTranslationToObservedEntityTransformTranslationBehaviorComponent>,
     >,
-    observed_query: Query<(&Transform,)>,
+    observed_query: Query<
+        (&Transform,),
+    >,
 ) {
     for (
+        mut desired_transform,
         &ObservedEntityVariablesComponent {
             entity: observed_entity,
         },
-        mut desired_transform,
     ) in query.iter_mut()
     {
         let observed_entity_transform = observed_query
@@ -163,21 +218,24 @@ pub fn set_desired_transform_translation_to_observed_entiy_transform_translation
     }
 }
 
+/// set [DesiredTransformVariablesComponent] using [ObservedEntityVariablesComponent].
 pub fn set_desired_transform_rotation_to_observed_entity_local_up_behavior_system(
     mut query: Query<
         (
-            &ObservedEntityVariablesComponent,
             &mut DesiredTransformVariablesComponent,
+            &ObservedEntityVariablesComponent,
         ),
         With<SetDesiredTransformRotationToObservedEntityLocalUpBehaviorComponent>,
     >,
-    observed_query: Query<(&Transform,)>,
+    observed_query: Query<
+        (&Transform,),
+    >,
 ) {
     for (
+        mut desired_transform,
         &ObservedEntityVariablesComponent {
             entity: observed_entity,
         },
-        mut desired_transform,
     ) in query.iter_mut()
     {
         let observed_entity_transform = observed_query
@@ -190,36 +248,54 @@ pub fn set_desired_transform_rotation_to_observed_entity_local_up_behavior_syste
     }
 }
 
+/// set [LookatVariablesComponent] on [SetLookatPositionToParentTransformTranslationBehaviorComponent].
 pub fn set_lookat_position_to_parent_transform_translation_behavior_system(
     mut query: Query<
         (&mut LookatVariablesComponent,),
         With<SetLookatPositionToParentTransformTranslationBehaviorComponent>,
     >,
 ) {
-    for mut lookat_variables in query.iter_mut() {
-        lookat_variables.0.position = Vec3::ZERO;
+    for mut lookat_variables in
+        query.iter_mut()
+    {
+        lookat_variables.0.position =
+            Vec3::ZERO;
     }
 }
 
-/// set desired height and lookat for player camera eyes.
-pub fn set_cylinder_coordinate_for_desired_transform_translation_using_input_system(
+/// set [CylinderCoordinatesForDesiredTransformTranslationVariablesComponent] on [SetCylinderCoordinateForDesiredTransformTranslationUsingInputBehaviorComponent].
+pub fn set_cylinder_coordinates_for_desired_transform_translation_using_input_system(
     mut mouse_motion_events: EventReader<MouseMotion>,
-    mut mouse_wheel_events: EventReader<MouseWheel>,
+    mut mouse_wheel_events: EventReader<
+        MouseWheel,
+    >,
     mut query: Query<
         (&mut CylinderCoordinatesForDesiredTransformTranslationVariablesComponent,),
         With<SetCylinderCoordinateForDesiredTransformTranslationUsingInputBehaviorComponent>,
     >,
 ) {
-    for mut desired_cylinder_coordinates_for_transform in query.iter_mut() {
+    for mut
+    desired_cylinder_coordinates_for_transform in
+        query.iter_mut()
+    {
         let mut input = Vec2::ZERO;
-        for mouse_event in mouse_motion_events.read() {
-            input.x += mouse_event.delta.x * 0.001;
-            input.y += mouse_event.delta.y * 0.001;
+        for mouse_event in
+            mouse_motion_events.read()
+        {
+            input.x +=
+                mouse_event.delta.x
+                    * 0.001;
+            input.y +=
+                mouse_event.delta.y
+                    * 0.001;
         }
 
         let mut zoom_input: f32 = 0.0;
-        for mouse_event in mouse_wheel_events.read() {
-            zoom_input += mouse_event.y * 0.1;
+        for mouse_event in
+            mouse_wheel_events.read()
+        {
+            zoom_input +=
+                mouse_event.y * 0.1;
         }
 
         desired_cylinder_coordinates_for_transform

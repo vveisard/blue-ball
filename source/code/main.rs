@@ -12,7 +12,7 @@ use bevy::{
     }, pbr::{
         light_consts, AlphaMode, AmbientLight, CascadeShadowConfigBuilder, DirectionalLight,
         DirectionalLightBundle, PbrBundle, StandardMaterial,
-    }, render::{color::Color, mesh::Mesh, view::InheritedVisibility}, scene::SceneBundle, time::Fixed, transform::{
+    }, render::{color::Color, mesh::Mesh, view::InheritedVisibility}, scene::SceneBundle, transform::{
         components::{GlobalTransform, Transform},
         TransformBundle,
     }, utils::default, DefaultPlugins
@@ -23,8 +23,8 @@ use bevy_rapier3d::{
     plugin::{NoUserData, PhysicsSet, RapierConfiguration, RapierPhysicsPlugin, TimestepMode},
     render::RapierDebugRenderPlugin,
 };
-use camera::{
-    transition_desired_transform_to_transform_system, apply_desired_transform_using_cylinder_coordinates_system, apply_lookat_to_transform_system, set_cylinder_coordinate_for_desired_transform_translation_using_input_system, set_desired_transform_rotation_to_observed_entity_local_up_behavior_system, set_desired_transform_translation_to_observed_entiy_transform_translation_behavior_system, set_lookat_position_to_parent_transform_translation_behavior_system, CameraBodyTagComponent, CameraEyesTagComponent, CylinderCameraBodyBundle, CylinderCameraEyesBundle, CylinderCoordinatesForDesiredTransformTranslationVariablesComponent, DesiredTransformVariablesComponent, LookatVariablesComponent, ObservedEntityVariablesComponent, SetCylinderCoordinateForDesiredTransformTranslationUsingInputBehaviorComponent, SetDesiredTransformRotationToObservedEntityLocalUpBehaviorComponent, SetDesiredTransformTranslationToObservedEntityTransformTranslationBehaviorComponent
+use cylinder_camera::{
+    transition_desired_transform_to_transform_system, apply_desired_transform_using_cylinder_coordinates_system, apply_lookat_to_transform_system, set_cylinder_coordinates_for_desired_transform_translation_using_input_system, set_desired_transform_rotation_to_observed_entity_local_up_behavior_system, set_desired_transform_translation_to_observed_entiy_transform_translation_behavior_system, set_lookat_position_to_parent_transform_translation_behavior_system, CameraBodyTagComponent, CameraEyesTagComponent, CylinderCameraBodyBundle, CylinderCameraEyesBundle, CylinderCoordinatesForDesiredTransformTranslationVariablesComponent, DesiredTransformVariablesComponent, LookatVariablesComponent, ObservedEntityVariablesComponent, SetCylinderCoordinateForDesiredTransformTranslationUsingInputBehaviorComponent, SetDesiredTransformRotationToObservedEntityLocalUpBehaviorComponent, SetDesiredTransformTranslationToObservedEntityTransformTranslationBehaviorComponent
 };
 use character::{
     update_character_body_try_jump_while_on_stage_system,
@@ -44,7 +44,7 @@ use math::CylindricalCoordinates;
 
 use std::{f32::consts::PI, ops::Mul, time::Duration};
 
-mod camera;
+mod cylinder_camera;
 mod character;
 mod math;
 
@@ -588,7 +588,7 @@ fn spawn_camera_system(
                         height: 5.0,
                     },
                 }, set_cylinder_coordinate_for_desired_transform_translation_angle_using_input_behavior: SetCylinderCoordinateForDesiredTransformTranslationUsingInputBehaviorComponent,
-                    set_lookat_position_to_parent_transform_translation_behavior: camera::SetLookatPositionToParentTransformTranslationBehaviorComponent, },
+                    set_lookat_position_to_parent_transform_translation_behavior: cylinder_camera::SetLookatPositionToParentTransformTranslationBehaviorComponent, },
                 Camera3dBundle {
                     transform: Transform::from_xyz(0.0, 0., 0.0)
                         .looking_at(Vec3::new(0., 0., 0.), Vec3::Y),
@@ -711,7 +711,7 @@ fn main() {
             set_desired_transform_translation_to_observed_entiy_transform_translation_behavior_system,
             set_desired_transform_rotation_to_observed_entity_local_up_behavior_system,
             set_lookat_position_to_parent_transform_translation_behavior_system,
-            set_cylinder_coordinate_for_desired_transform_translation_using_input_system
+            set_cylinder_coordinates_for_desired_transform_translation_using_input_system
         )
             .run_if(in_state(AppState::Play)),
     );
