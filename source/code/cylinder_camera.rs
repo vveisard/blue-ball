@@ -90,7 +90,7 @@ pub struct LookatVariablesComponent {
 #[derive(Component)]
 pub struct LookatOffsetVariablesComponent
 {
-    pub local_offset: Vec3,
+    pub translation_wrt_parent: Vec3,
 }
 
 /// component with cylinder coordinates for [DesiredTransformVariablesComponent].
@@ -290,11 +290,9 @@ pub fn set_lookat_position_to_observed_entity_transform_translation_with_offset_
             .get(observed_entity)
             .expect("Observed entity despawned!");
 
-        let observed_entity_global_translation = observed_entity.0.translation();
-        let parent_entity_global_translation = parent_entity.0.translation();
-        let observed_entity_translation_relative_to_parent = observed_entity_global_translation - parent_entity_global_translation;
+        let translation_wrt_parent  = parent_entity.0.affine().inverse().transform_point3(observed_entity.0.translation());
 
-        lookat_variables.position_relative_to_parent = observed_entity_translation_relative_to_parent + lookat_offset_variables.local_offset;
+        lookat_variables.position_relative_to_parent = translation_wrt_parent + lookat_offset_variables.translation_wrt_parent;
     }
 }
 
@@ -368,7 +366,7 @@ pub fn set_lookat_offset_using_input_system(
     {
         lookat_offset_variables
             .0
-            .local_offset
+            .translation_wrt_parent
             .y += input.y * 0.2
     }
 }

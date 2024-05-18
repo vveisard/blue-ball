@@ -1,13 +1,3 @@
-# STORY refactor camera
-
-## TODO documentation
-
-## TODO lookat height
-
-## TODO refactor common components and systems to common source files
-
----
-
 # STORY refactor character ECS to match camera ECS
 
 I switched up paradigms.

@@ -588,7 +588,7 @@ let next_observed_character_entity = query.get_single().unwrap().0;
                       entity: next_observed_character_entity
                     },
                 lookat_offset_variables: LookatOffsetVariablesComponent {
-                  local_offset: Vec3::ZERO
+                  translation_wrt_parent: Vec3::ZERO
                 },
                 cylinder_coordindates_for_desired_transform_translation_variables: CylinderCoordinatesForDesiredTransformTranslationVariablesComponent {
                     cylinder_coordindates: CylindricalCoordinates {
