@@ -1,45 +1,52 @@
-# STORY replace camera lookat with eyes_forward
+# STORY refactor camera
 
-## DESIGN
+## TODO documentation
 
-eyes_forward and eyes_up will be used to determine the camera rotation.
+## TODO lookat height
 
-camera should look _down_ as the height moves up
-
-## IMPLEMENTATION
-
-I can adjust the y value of the direction using vertical mouse input, and adjust the x/z using horizontal mouse input by rotating the desired direction about the Y axis (at same speed of the angle)
+## TODO refactor common components and systems to common source files
 
 ---
 
-# ACTION
+# STORY refactor character ECS to match camera ECS
 
-show-off
+I switched up paradigms.
 
----
+systems:
 
-# STORY camera zones
+- apply
+- transition
+- set
 
-## DESIGN
+components:
 
-I need to have a
+- variables
+- behavior
+
+## ACCEPTANCE
+
+I will know this is working when existing paradigms are met.
 
 ---
 
 # STORY I want a custom character controller
 
-I need a fully custom character controller. I should research my
+I need a fully custom character controller. Research needs to be done on how to achieve this.
+
+## ACCEPTANCE
+
+I will know this is complete when:
+
+- I can freely move around the mesh
+- I can freely move up some steps
+- I can stop when an amount of speed (option) into the wall (Bonk)
+- I can jump back up onto the platform with a large "step" (LedgeGetup)
+- I can snap up to the top of a box (ObstacleVault)
+- I have my movemnt cancelled instead of walking off the stage (alway ledgecatch)
 
 ## IMPLEMENTATION
 
-A module full of code to move around, like MoveShape, is ideal.
-
-## DESIGN
-
-Output of MoveShape is a data structure with "segments and events". Ie, the segments that were traveled, and when events happened during that travel.
-
-Fixed bodies should not be able to be moved into.
-Dynamic bodies should be ignored, and be able to be moved into to.
+A move_shape which returns some results is idea.
 
 ---
 
