@@ -152,10 +152,16 @@ pub fn transition_parent_transform_to_desired_parent_transform_system(
         desired_parent_transform,
     ) in query.iter_mut()
     {
-        let next_position =
+        let next_position = Vec3::lerp(
+            parent_transform
+                .transform
+                .translation,
             desired_parent_transform
                 .transform
-                .translation;
+                .translation,
+            time.delta().as_secs_f32()
+                * 3.33,
+        );
         let next_rotation = Quat::slerp(
             parent_transform
                 .transform
@@ -189,10 +195,14 @@ pub fn transition_transform_to_desired_transform_system(
         desired_transform_variables,
     ) in query.iter_mut()
     {
-        let next_position =
+        let next_position = Vec3::lerp(
+            transform.translation,
             desired_transform_variables
                 .desired_transform
-                .translation;
+                .translation,
+            time.delta().as_secs_f32()
+                * 3.33,
+        );
         let next_rotation = Quat::slerp(
             transform.rotation,
             desired_transform_variables
