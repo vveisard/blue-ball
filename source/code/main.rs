@@ -1,35 +1,21 @@
 use bevy::{
-    app::{App, FixedPreUpdate, PostUpdate, Startup, Update},
-    asset::{AssetServer, Assets, Handle, LoadState, UntypedHandle},
-    core_pipeline::core_3d::Camera3dBundle,
-    ecs::{
+    app::{App, FixedPreUpdate, FixedUpdate, PostUpdate, Startup, Update}, asset::{AssetServer, Assets, Handle, LoadState, UntypedHandle}, core_pipeline::core_3d::Camera3dBundle, ecs::{
         entity::Entity,
         query::With,
         schedule::{
             common_conditions::in_state, IntoSystemConfigs, NextState, OnEnter, States, SystemSet,
         },
         system::{Commands, Query, Res, ResMut, Resource},
-    },
-    gizmos::gizmos::Gizmos,
-    gltf::{Gltf, GltfMesh},
-    hierarchy::BuildChildren,
-    input::{keyboard::KeyCode, ButtonInput},
-    math::{
+    }, gizmos::gizmos::Gizmos, gltf::{Gltf, GltfMesh}, hierarchy::BuildChildren, input::{keyboard::KeyCode, ButtonInput}, math::{
         primitives::{Capsule3d, Cuboid},
         Affine3A, Quat, Vec2, Vec3,
-    },
-    pbr::{
+    }, pbr::{
         light_consts, AlphaMode, AmbientLight, CascadeShadowConfigBuilder, DirectionalLight,
         DirectionalLightBundle, PbrBundle, StandardMaterial,
-    },
-    render::{color::Color, mesh::Mesh, view::InheritedVisibility},
-    scene::SceneBundle,
-    transform::{
+    }, render::{color::Color, mesh::Mesh, view::InheritedVisibility}, scene::SceneBundle, time::Fixed, transform::{
         components::{GlobalTransform, Transform},
         TransformBundle,
-    },
-    utils::default,
-    DefaultPlugins,
+    }, utils::default, DefaultPlugins
 };
 use bevy_rapier3d::{
     dynamics::{Ccd, Damping, GravityScale, LockedAxes, RigidBody, Sleeping, Velocity},
@@ -708,11 +694,19 @@ fn main() {
             .run_if(in_state(AppState::Play)),
     );
 
-    app.add_systems(
-        Update,
+        app.add_systems(
+        FixedUpdate,
         (
             apply_desired_transform_to_transform_system,
             apply_desired_transform_using_cylinder_coordinates_system,
+        )
+            .run_if(in_state(AppState::Play)),
+    );
+
+
+    app.add_systems(
+        Update,
+        (
             apply_lookat_to_transform_system,
             set_desired_transform_translation_to_observed_entiy_transform_translation_behavior_system,
             set_desired_transform_rotation_to_observed_entity_local_up_behavior_system,
