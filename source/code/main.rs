@@ -1,29 +1,80 @@
 use bevy::{
-    app::{App, FixedPreUpdate, FixedUpdate, PostUpdate, Startup, Update}, asset::{AssetServer, Assets, Handle, LoadState, UntypedHandle}, core_pipeline::core_3d::Camera3dBundle, ecs::{
+    app::{
+        App, FixedPreUpdate,
+        FixedUpdate, PostUpdate,
+        Startup, Update,
+    },
+    asset::{
+        AssetServer, Assets, Handle,
+        LoadState, UntypedHandle,
+    },
+    core_pipeline::core_3d::Camera3dBundle,
+    ecs::{
         entity::Entity,
         query::With,
         schedule::{
-            common_conditions::in_state, IntoSystemConfigs, NextState, OnEnter, States, SystemSet,
+            common_conditions::in_state,
+            IntoSystemConfigs,
+            NextState, OnEnter, States,
+            SystemSet,
         },
-        system::{Commands, Query, Res, ResMut, Resource},
-    }, gizmos::gizmos::Gizmos, gltf::{Gltf, GltfMesh}, hierarchy::BuildChildren, input::{keyboard::KeyCode, ButtonInput}, math::{
-        primitives::{Capsule3d, Cuboid},
+        system::{
+            Commands, Query, Res,
+            ResMut, Resource,
+        },
+    },
+    gizmos::gizmos::Gizmos,
+    gltf::{Gltf, GltfMesh},
+    hierarchy::BuildChildren,
+    input::{
+        keyboard::KeyCode, ButtonInput,
+    },
+    math::{
+        primitives::{
+            Capsule3d, Cuboid,
+        },
         Affine3A, Quat, Vec2, Vec3,
-    }, pbr::{
-        light_consts, AlphaMode, AmbientLight, CascadeShadowConfigBuilder, DirectionalLight,
-        DirectionalLightBundle, PbrBundle, StandardMaterial,
-    }, render::{color::Color, mesh::Mesh, view::InheritedVisibility}, scene::SceneBundle, transform::{
-        components::{GlobalTransform, Transform}, TransformBundle
-    }, utils::default, DefaultPlugins
+    },
+    pbr::{
+        light_consts, AlphaMode,
+        AmbientLight,
+        CascadeShadowConfigBuilder,
+        DirectionalLight,
+        DirectionalLightBundle,
+        PbrBundle, StandardMaterial,
+    },
+    render::{
+        color::Color, mesh::Mesh,
+        view::InheritedVisibility,
+    },
+    scene::SceneBundle,
+    transform::{
+        components::{
+            GlobalTransform, Transform,
+        },
+        TransformBundle,
+    },
+    utils::default,
+    DefaultPlugins,
 };
 use bevy_rapier3d::{
-    dynamics::{Ccd, Damping, GravityScale, LockedAxes, RigidBody, Sleeping, Velocity},
-    geometry::{Collider, CollisionGroups, ComputedColliderShape, Friction, Group},
-    plugin::{NoUserData, PhysicsSet, RapierConfiguration, RapierPhysicsPlugin, TimestepMode},
+    dynamics::{
+        Ccd, Damping, GravityScale,
+        LockedAxes, RigidBody,
+        Sleeping, Velocity,
+    },
+    geometry::{
+        Collider, CollisionGroups,
+        ComputedColliderShape,
+        Friction, Group,
+    },
+    plugin::{
+        NoUserData, PhysicsSet,
+        RapierConfiguration,
+        RapierPhysicsPlugin,
+        TimestepMode,
+    },
     render::RapierDebugRenderPlugin,
-};
-use cylinder_camera::{
-    apply_desired_transform_using_cylinder_coordinates_system, apply_lookat_to_transform_system, draw_camera_lookat_gizmos, set_cylinder_coordinates_for_desired_transform_translation_using_input_system, set_desired_lookat_position_to_observed_entity_transform_translation_with_offset_behavior_system, set_desired_lookat_up_to_observed_entity_transform_local_up_with_offset_behavior, set_desired_parent_transform_rotation_to_observed_entity_local_up_behavior_system, set_desired_parent_transform_translation_to_observed_entiy_transform_translation_behavior_system, set_lookat_offset_using_input_system, transition_lookat_variables_to_desired_lookat_variables_system, transition_parent_transform_to_desired_parent_transform_system, transition_transform_to_desired_transform_system, ActorCameraBundle, CameraEyesTagComponent, CylinderActorCameraBundle, CylinderCoordinatesForDesiredTransformTranslationVariablesComponent, DesiredLookatVariablesComponent, DesiredTransformParentVariablesComponent, DesiredTransformVariablesComponent, LookatOffsetVariablesComponent, LookatVariablesComponent, ObservedEntityVariablesComponent, ParentTransformVariablesComponent, SetCylinderCoordinateForDesiredTransformTranslationUsingInputBehaviorComponent, SetDesiredLookatPositionToObservedEntityTransformTranslationWithOffsetBehaviorComponent, SetDesiredLookatUpToObservedEntityTransformLocalUpWithOffsetBehaviorComponent, SetDesiredTransformRotationToObservedEntityLocalUpBehaviorComponent, SetDesiredTransformTranslationToObservedEntityTransformTranslationBehaviorComponent, SetLookatOffsetUsingInputBehaviorComponent
 };
 use character::{
     update_character_body_try_jump_while_on_stage_system,
@@ -33,18 +84,56 @@ use character::{
     update_character_body_while_on_stage_system,
     update_character_horizontal_movement_velocity_system,
     update_character_movement_velocity_while_in_air_phase_system,
-    update_character_movement_velocity_while_on_stage_system, CharacterBodyTagComponent,
-    CharacterBundle, CharacterFallPhaseMovementParametersComponent,
-    CharacterMovementParametersComponent, CharacterMovementVariablesComponent,
-    CharacterPlayerInputComponent, CharacterTagComponent,
+    update_character_movement_velocity_while_on_stage_system,
+    CharacterBodyTagComponent,
+    CharacterBundle,
+    CharacterFallPhaseMovementParametersComponent,
+    CharacterMovementParametersComponent,
+    CharacterMovementVariablesComponent,
+    CharacterPlayerInputComponent,
+    CharacterTagComponent,
     CharacterTransformationFromPlayerToCameraVariablesComponent,
+};
+use cylinder_camera::{
+    apply_desired_transform_using_cylinder_coordinates_system,
+    apply_lookat_to_transform_system,
+    draw_camera_lookat_gizmos,
+    set_cylinder_coordinates_for_desired_transform_translation_using_input_system,
+    set_desired_lookat_position_to_observed_entity_transform_translation_with_offset_behavior_system,
+    set_desired_lookat_up_to_observed_entity_transform_local_up_with_offset_behavior,
+    set_desired_parent_transform_rotation_to_observed_entity_local_up_behavior_system,
+    set_desired_parent_transform_translation_to_observed_entiy_transform_translation_behavior_system,
+    set_lookat_offset_using_input_system,
+    transition_lookat_variables_to_desired_lookat_variables_system,
+    transition_parent_transform_to_desired_parent_transform_system,
+    transition_transform_to_desired_transform_system,
+    ActorCameraBundle,
+    CameraEyesTagComponent,
+    CylinderActorCameraBundle,
+    CylinderCoordinatesForDesiredTransformTranslationVariablesComponent,
+    DesiredLookatVariablesComponent,
+    DesiredTransformParentVariablesComponent,
+    DesiredTransformVariablesComponent,
+    LookatOffsetVariablesComponent,
+    LookatVariablesComponent,
+    ObservedEntityVariablesComponent,
+    ParentTransformVariablesComponent,
+    SetCylinderCoordinateForDesiredTransformTranslationUsingInputBehaviorComponent,
+    SetDesiredLookatPositionToObservedEntityTransformTranslationWithOffsetBehaviorComponent,
+    SetDesiredLookatUpToObservedEntityTransformLocalUpWithOffsetBehaviorComponent,
+    SetDesiredTransformRotationToObservedEntityLocalUpBehaviorComponent,
+    SetDesiredTransformTranslationToObservedEntityTransformTranslationBehaviorComponent,
+    SetLookatOffsetUsingInputBehaviorComponent,
 };
 use math::CylindricalCoordinates;
 
-use std::{f32::consts::PI, ops::Mul, time::Duration};
+use std::{
+    f32::consts::PI, ops::Mul,
+    time::Duration,
+};
 
-mod cylinder_camera;
 mod character;
+mod cylinder_camera;
 mod math;
 
 /// resource for the next zone
@@ -55,14 +144,23 @@ struct NextZoneResource {
     asset_handles: Vec<UntypedHandle>,
 
     /// asset handle for the main gltf asset
-    main_gltf_asset_handle: Handle<Gltf>,
+    main_gltf_asset_handle:
+        Handle<Gltf>,
 
     /// flag for
     did_spawn_main_gltf: bool,
 }
 
 /// state of the app
-#[derive(States, Debug, Clone, PartialEq, Eq, Hash, Default)]
+#[derive(
+    States,
+    Debug,
+    Clone,
+    PartialEq,
+    Eq,
+    Hash,
+    Default,
+)]
 enum AppState {
     #[default]
     None,
@@ -75,14 +173,23 @@ enum AppState {
 fn transition_app_state_from_load_next_zone_to_setup_next_zone_when_next_zone_assets_loaded_system(
     asset_server: Res<AssetServer>,
     next_zone: Res<NextZoneResource>,
-    mut next_app_state: ResMut<NextState<AppState>>,
+    mut next_app_state: ResMut<
+        NextState<AppState>,
+    >,
 ) {
     // panics when any asset is unloaded
     let all_loaded = next_zone
         .asset_handles
         .iter()
-        .map(|asset_handle| asset_server.get_load_state(asset_handle.id()))
-        .all(|f| f.unwrap() == LoadState::Loaded);
+        .map(|asset_handle| {
+            asset_server.get_load_state(
+                asset_handle.id(),
+            )
+        })
+        .all(|f| {
+            f.unwrap()
+                == LoadState::Loaded
+        });
 
     if !all_loaded {
         return;
@@ -90,14 +197,17 @@ fn transition_app_state_from_load_next_zone_to_setup_next_zone_when_next_zone_as
 
     // TODO error when not loaded
 
-    next_app_state.set(AppState::SetupNextZone);
+    next_app_state
+        .set(AppState::SetupNextZone);
 }
 
 /// system to transition [AppState] from [AppState::SetupNextZone] to [AppState::Play].
 fn transition_app_state_from_setup_next_zone_to_play_when_zone_spawned_system(
     mut commands: Commands,
     next_zone: Res<NextZoneResource>,
-    mut next_app_state: ResMut<NextState<AppState>>,
+    mut next_app_state: ResMut<
+        NextState<AppState>,
+    >,
 ) {
     if !next_zone.did_spawn_main_gltf {
         return;
@@ -110,24 +220,40 @@ fn transition_app_state_from_setup_next_zone_to_play_when_zone_spawned_system(
 /// system to spawn main gltf asset of next zone
 fn spawn_scene_using_next_zone_resource_system(
     mut commands: Commands,
-    mut zone_loading_resource: ResMut<NextZoneResource>,
+    mut zone_loading_resource: ResMut<
+        NextZoneResource,
+    >,
     gltf_assets: Res<Assets<Gltf>>,
-    gltf_mesh_assets: Res<Assets<GltfMesh>>,
+    gltf_mesh_assets: Res<
+        Assets<GltfMesh>,
+    >,
     mesh_assets: Res<Assets<Mesh>>,
 ) {
-    if zone_loading_resource.did_spawn_main_gltf {
+    if zone_loading_resource
+        .did_spawn_main_gltf
+    {
         return;
     }
 
     println!("spawn_scene_using_next_zone_resource_system");
 
-    let main_zone_asset_handle = zone_loading_resource.main_gltf_asset_handle.clone();
+    let main_zone_asset_handle =
+        zone_loading_resource
+            .main_gltf_asset_handle
+            .clone();
 
     // if the GLTF has loaded, we can navigate its contents
-    let gltf = gltf_assets.get(&main_zone_asset_handle).unwrap();
-    let gltf_mesh = gltf_mesh_assets.get(&gltf.meshes[0]).unwrap();
-    let mesh_handle = &gltf_mesh.primitives[0].mesh;
-    let mesh = mesh_assets.get(mesh_handle.id()).unwrap();
+    let gltf = gltf_assets
+        .get(&main_zone_asset_handle)
+        .unwrap();
+    let gltf_mesh = gltf_mesh_assets
+        .get(&gltf.meshes[0])
+        .unwrap();
+    let mesh_handle =
+        &gltf_mesh.primitives[0].mesh;
+    let mesh = mesh_assets
+        .get(mesh_handle.id())
+        .unwrap();
 
     commands
         .spawn(TransformBundle {
@@ -147,7 +273,8 @@ fn spawn_scene_using_next_zone_resource_system(
             parent_commands.spawn(collider);
         });
 
-    zone_loading_resource.did_spawn_main_gltf = true;
+    zone_loading_resource
+        .did_spawn_main_gltf = true;
 }
 
 fn update_character_rotation_from_player_to_character_system(
@@ -158,15 +285,22 @@ fn update_character_rotation_from_player_to_character_system(
         ),
         With<CharacterTagComponent>,
     >,
-    player_query: Query<(&Transform, &GlobalTransform), With<CameraEyesTagComponent>>,
+    player_query: Query<
+        (&Transform, &GlobalTransform),
+        With<CameraEyesTagComponent>,
+    >,
 ) {
-    let mut character = character_query.single_mut();
+    let mut character =
+        character_query.single_mut();
     let player = player_query.single();
     let character_up = character.0.up();
     let player_up = player.0.up();
 
     let rotation_from_player_up_to_character_up =
-        Quat::from_rotation_arc(*player_up, *character_up);
+        Quat::from_rotation_arc(
+            *player_up,
+            *character_up,
+        );
 
     let next_transformation = Affine3A::mul(
         Affine3A::from_quat(rotation_from_player_up_to_character_up),
@@ -179,7 +313,9 @@ fn update_character_rotation_from_player_to_character_system(
 }
 
 fn apply_character_movement_input_using_player_input_system(
-    keyboard_input: Res<ButtonInput<KeyCode>>,
+    keyboard_input: Res<
+        ButtonInput<KeyCode>,
+    >,
     mut character_query: Query<
         (
             &CharacterTransformationFromPlayerToCameraVariablesComponent,
@@ -188,22 +324,31 @@ fn apply_character_movement_input_using_player_input_system(
         With<CharacterTagComponent>,
     >,
 ) {
-    let mut character = character_query.single_mut();
+    let mut character =
+        character_query.single_mut();
 
     let mut local_input = Vec3::ZERO;
-    if keyboard_input.pressed(KeyCode::KeyW) {
+    if keyboard_input
+        .pressed(KeyCode::KeyW)
+    {
         local_input.z -= 1.0;
     }
 
-    if keyboard_input.pressed(KeyCode::KeyS) {
+    if keyboard_input
+        .pressed(KeyCode::KeyS)
+    {
         local_input.z += 1.0;
     }
 
-    if keyboard_input.pressed(KeyCode::KeyD) {
+    if keyboard_input
+        .pressed(KeyCode::KeyD)
+    {
         local_input.x += 1.0;
     }
 
-    if keyboard_input.pressed(KeyCode::KeyA) {
+    if keyboard_input
+        .pressed(KeyCode::KeyA)
+    {
         local_input.x -= 1.0;
     }
 
@@ -214,22 +359,31 @@ fn apply_character_movement_input_using_player_input_system(
         local_input,
     );
 
-    character.1.global_movement_player_input = next_input;
+    character
+        .1
+        .global_movement_player_input =
+        next_input;
 }
 
 fn apply_character_jump_input_using_player_input_system(
-    keyboard_input: Res<ButtonInput<KeyCode>>,
+    keyboard_input: Res<
+        ButtonInput<KeyCode>,
+    >,
     mut character_query: Query<(&mut CharacterPlayerInputComponent,), With<CharacterTagComponent>>,
 ) {
-    let mut character = character_query.single_mut();
+    let mut character =
+        character_query.single_mut();
 
     let mut local_input = false;
-    if keyboard_input.just_pressed(KeyCode::Space) {
+    if keyboard_input
+        .just_pressed(KeyCode::Space)
+    {
         local_input = true;
     }
     // println!("{}, {}", local_input, global_input);
 
-    character.0.do_activate_jump_input = local_input
+    character.0.do_activate_jump_input =
+        local_input
 }
 
 // endregion
@@ -247,17 +401,20 @@ fn draw_character_transform_gizmos_system(
         With<CharacterTagComponent>,
     >,
 ) {
-    let character = character_query.single();
+    let character =
+        character_query.single();
 
     gizmos.arrow(
         character.0.translation,
-        character.0.translation + *character.0.right(),
+        character.0.translation
+            + *character.0.right(),
         Color::RED.with_a(0.5),
     );
 
     gizmos.arrow(
         character.0.translation,
-        character.0.translation + *character.0.forward(),
+        character.0.translation
+            + *character.0.forward(),
         Color::BLUE.with_a(0.5),
     );
 }
@@ -272,7 +429,8 @@ fn draw_character_rotation_from_global_to_character_gizmos_system(
         With<CharacterTagComponent>,
     >,
 ) {
-    let character = character_query.single();
+    let character =
+        character_query.single();
 
     let character_forward_input = Affine3A::transform_vector3(
         &character
@@ -290,12 +448,14 @@ fn draw_character_rotation_from_global_to_character_gizmos_system(
 
     gizmos.arrow(
         character.0.translation,
-        character.0.translation + character_forward_input,
+        character.0.translation
+            + character_forward_input,
         Color::rgb(0.0, 1.0, 1.0),
     );
     gizmos.arrow(
         character.0.translation,
-        character.0.translation + character_right_input,
+        character.0.translation
+            + character_right_input,
         Color::rgb(1.0, 0.0, 1.0),
     );
 }
@@ -307,7 +467,8 @@ fn draw_character_input_gizmos_system(
         With<CharacterTagComponent>,
     >,
 ) {
-    let character = character_query.single();
+    let character =
+        character_query.single();
 
     gizmos.arrow(
         character.0.translation,
@@ -318,13 +479,18 @@ fn draw_character_input_gizmos_system(
 
 fn draw_character_body_velocity_gizmos_system(
     mut gizmos: Gizmos,
-    character_query: Query<(&Transform, &Velocity), With<CharacterTagComponent>>,
+    character_query: Query<
+        (&Transform, &Velocity),
+        With<CharacterTagComponent>,
+    >,
 ) {
-    let character = character_query.single();
+    let character =
+        character_query.single();
 
     gizmos.arrow(
         character.0.translation,
-        character.0.translation + character.1.linvel,
+        character.0.translation
+            + character.1.linvel,
         Color::YELLOW,
     );
 }
@@ -336,13 +502,20 @@ fn draw_character_vertical_movement_velocity_gizmos_system(
         With<CharacterTagComponent>,
     >,
 ) {
-    let character = character_query.single();
+    let character =
+        character_query.single();
 
-    let next_body_velocity = character.0.up() * character.1.local_vertical_velocity;
+    let next_body_velocity = character
+        .0
+        .up()
+        * character
+            .1
+            .local_vertical_velocity;
 
     gizmos.arrow(
         character.0.translation,
-        character.0.translation + next_body_velocity,
+        character.0.translation
+            + next_body_velocity,
         Color::ORANGE_RED,
     );
 }
@@ -354,10 +527,14 @@ fn draw_character_horizontal_movement_velocity_gizmos_system(
         With<CharacterTagComponent>,
     >,
 ) {
-    let character = character_query.single();
+    let character =
+        character_query.single();
 
     let rotation_from_global_up_to_character_up =
-        Quat::from_rotation_arc(Vec3::Y, *character.0.up());
+        Quat::from_rotation_arc(
+            Vec3::Y,
+            *character.0.up(),
+        );
 
     let next_body_velocity = Quat::mul_vec3(
         rotation_from_global_up_to_character_up,
@@ -370,7 +547,8 @@ fn draw_character_horizontal_movement_velocity_gizmos_system(
 
     gizmos.arrow(
         character.0.translation,
-        character.0.translation + next_body_velocity,
+        character.0.translation
+            + next_body_velocity,
         Color::ORANGE_RED,
     );
 }
@@ -382,36 +560,63 @@ fn draw_character_horizontal_movement_velocity_gizmos_system(
 fn setup_next_zone_to_suzanne_system(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    mut next_app_state: ResMut<NextState<AppState>>,
+    mut next_app_state: ResMut<
+        NextState<AppState>,
+    >,
 ) {
-    let asset_handle = asset_server.load::<Gltf>("zone/suzanne.glb");
+    let asset_handle = asset_server
+        .load::<Gltf>(
+            "zone/suzanne.glb",
+        );
 
-    commands.insert_resource(NextZoneResource {
-        asset_handles: Vec::from([asset_handle.clone().untyped()]),
-        main_gltf_asset_handle: asset_handle,
-        did_spawn_main_gltf: false,
-    });
+    commands.insert_resource(
+        NextZoneResource {
+            asset_handles: Vec::from([
+                asset_handle
+                    .clone()
+                    .untyped(),
+            ]),
+            main_gltf_asset_handle:
+                asset_handle,
+            did_spawn_main_gltf: false,
+        },
+    );
 
-    next_app_state.set(AppState::LoadNextZone);
+    next_app_state
+        .set(AppState::LoadNextZone);
 }
 
 fn spawn_test_zone_system(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut materials: ResMut<
+        Assets<StandardMaterial>,
+    >,
 ) {
     // zone, floor
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(Cuboid::new(25.0, 1.0, 25.0)),
-            material: materials.add(Color::WHITE),
-            transform: Transform::from_xyz(0.0, 99.5, 0.0),
+            mesh: meshes.add(
+                Cuboid::new(
+                    25.0, 1.0, 25.0,
+                ),
+            ),
+            material: materials
+                .add(Color::WHITE),
+            transform:
+                Transform::from_xyz(
+                    0.0, 99.5, 0.0,
+                ),
             ..default()
         },
-        Collider::cuboid(12.5, 0.5, 12.5),
+        Collider::cuboid(
+            12.5, 0.5, 12.5,
+        ),
         CollisionGroups::new(
-            Group::from_bits(0b0010).unwrap(),
-            Group::from_bits(0b0100).unwrap(),
+            Group::from_bits(0b0010)
+                .unwrap(),
+            Group::from_bits(0b0100)
+                .unwrap(),
         ),
     ));
 
@@ -434,23 +639,35 @@ fn spawn_test_zone_system(
     // zone, obstacle
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(Cuboid::new(1.0, 1.0, 1.0)),
-            material: materials.add(Color::WHITE),
-            transform: Transform::from_xyz(5.0, 100.5, 5.0),
+            mesh: meshes.add(
+                Cuboid::new(
+                    1.0, 1.0, 1.0,
+                ),
+            ),
+            material: materials
+                .add(Color::WHITE),
+            transform:
+                Transform::from_xyz(
+                    5.0, 100.5, 5.0,
+                ),
             ..default()
         },
         Collider::cuboid(0.5, 0.5, 0.5),
         CollisionGroups::new(
-            Group::from_bits(0b0010).unwrap(),
-            Group::from_bits(0b0100).unwrap(),
+            Group::from_bits(0b0010)
+                .unwrap(),
+            Group::from_bits(0b0100)
+                .unwrap(),
         ),
     ));
 
     // ambient light
-    commands.insert_resource(AmbientLight {
-        color: Color::WHITE,
-        brightness: 7.0,
-    });
+    commands.insert_resource(
+        AmbientLight {
+            color: Color::WHITE,
+            brightness: 7.0,
+        },
+    );
 
     // directional 'sun' light
     commands.spawn(DirectionalLightBundle {
@@ -477,7 +694,9 @@ fn spawn_test_zone_system(
 fn spawn_character_system(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut materials: ResMut<
+        Assets<StandardMaterial>,
+    >,
 ) {
     commands
         .spawn((
@@ -554,26 +773,30 @@ fn spawn_character_system(
 
 fn spawn_camera_system(
     mut commands: Commands,
-    query: Query<(Entity, &Transform), With<CharacterTagComponent>>,
+    query: Query<
+        (Entity, &Transform),
+        With<CharacterTagComponent>,
+    >,
 ) {
-let next_observed_character = query.get_single().unwrap();
+    let next_observed_character =
+        query.get_single().unwrap();
 
     // camera
     commands
         .spawn((
-              ActorCameraBundle { 
-                tag: CameraEyesTagComponent, 
+              ActorCameraBundle {
+                tag: CameraEyesTagComponent,
                 desired_transform_variables: DesiredTransformVariablesComponent {
                   desired_transform: Transform::from_xyz(0.0, 0.0, 0.0),
                 },
                 desired_lookat_variables: DesiredLookatVariablesComponent {
                   position: Vec3::new(0.0, 100.0, 0.0),
                   up: Vec3::Y,
-                }, 
+                },
                 lookat_variables: LookatVariablesComponent {
                   position: Vec3::new(0.0, 100.0, 0.0),
                   up: Vec3::Y,
-                }, 
+                },
                 observed_entity: ObservedEntityVariablesComponent {
                   entity: next_observed_character.0
                 },
@@ -613,10 +836,18 @@ let next_observed_character = query.get_single().unwrap();
 // endregion
 
 /// system set for character movement velocity
-#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(
+    SystemSet,
+    Debug,
+    Clone,
+    PartialEq,
+    Eq,
+    Hash,
+)]
 struct CharacterPhaseMovementVelocitySystemSet;
 
-const DEFAULT_TIMESTEP: Duration = Duration::from_micros(15625);
+const DEFAULT_TIMESTEP: Duration =
+    Duration::from_micros(15625);
 
 fn main() {
     let mut app = App::new();
@@ -706,7 +937,7 @@ fn main() {
             .run_if(in_state(AppState::Play)),
     );
 
-        app.add_systems(
+    app.add_systems(
         FixedUpdate,
         (
             transition_transform_to_desired_transform_system,
@@ -717,7 +948,6 @@ fn main() {
         )
             .run_if(in_state(AppState::Play)),
     );
-
 
     app.add_systems(
         Update,

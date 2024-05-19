@@ -1,3 +1,19 @@
+# STORY fly camera
+
+## PURPOSE
+
+The purpose of this story is to switch betwen two different types of cameras
+
+## DESIGN
+
+When I press a button, I want to switch to "fly" camera. when I press it again, I want to switch back to character camera behavior.
+
+## IMPLEMENTATION
+
+removing behaviors from the camera, and adding new ones.
+
+---
+
 # STORY refactor character ECS to match camera ECS
 
 I switched up paradigms.

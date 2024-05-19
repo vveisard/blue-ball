@@ -383,7 +383,7 @@ pub fn set_desired_lookat_position_to_observed_entity_transform_translation_with
 ) {
     for (
       mut lookat_variables,
-      lookat_offset_variables,       
+      lookat_offset_variables,
       &ObservedEntityVariablesComponent {
             entity: observed_entity,
         },
